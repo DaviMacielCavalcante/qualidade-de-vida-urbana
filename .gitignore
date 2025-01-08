@@ -3,7 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-.datalake
+datalake/
 .ipynb
 # C extensions
 *.so
