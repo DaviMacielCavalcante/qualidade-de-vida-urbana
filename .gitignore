@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 datalake/
-.ipynb
+*.ipynb
 # C extensions
 *.so
 
