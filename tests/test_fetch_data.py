@@ -1,28 +1,27 @@
 from unittest.mock import patch
-from pipe.json_data import return_json_body
+from fetcher.fetch_data import fetch_air_data
 
 mocked_data = {
-    "pollution": {
-        "main_pollutant": "pm25",
-        "concentration": {
-        "value": 13.14,
-        "units": "MICROGRAMS_PER_CUBIC_METER"
-      }
-    }
+    "url" : "fake",
+    "latitude": 12,
+    "longitude" : 12
 }
 
-@patch("pipe.json_data.fetch_air_data")
-def test_return_json_body(mock_fetch_air_data):
-    mock_fetch_air_data.return_value = mocked_data
+@patch('fetcher.fetch_data.requests.post')
+def test_fetch_data(mocked_post):
+    expect_response = {
+        "dateTime": "2022-12-12T12:12:12Z",
+        "pollution": {
+            "main_pollutant": "pm25",
+            "concentration": {
+            "value": 13.14,
+            "units": "MICROGRAMS_PER_CUBIC_METER"
+          }
+        }
+    }
 
-    
-    result = return_json_body()
+    mocked_post.return_value.json.return_value = expect_response
+    response = fetch_air_data(mocked_data["url"], mocked_data["latitude"], mocked_data["longitude"])
 
-    # Verifica se os campos relevantes estão corretos
-    assert "pollution" in result
-    assert result["pollution"]["main_pollutant"] == mocked_data["pollution"]["main_pollutant"]
-    assert result["pollution"]["concentration"]["value"] == mocked_data["pollution"]["concentration"]["value"]
-    assert result["pollution"]["concentration"]["units"] == mocked_data["pollution"]["concentration"]["units"]
+    assert expect_response == response
 
-    # Verifica se fetch_air_data foi chamada corretamente
-    mock_fetch_air_data.assert_called_once()

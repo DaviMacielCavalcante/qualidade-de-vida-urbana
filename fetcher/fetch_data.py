@@ -1,4 +1,4 @@
-import requests as r
+import requests 
 
 def fetch_air_data(url, latitude, longitude):
     payload = {
@@ -17,6 +17,6 @@ def fetch_air_data(url, latitude, longitude):
     headers = {
     "Content-Type": "application/json"
     }
-    response = r.post(url, json=payload, headers=headers)
+    response = requests.post(url, json=payload, headers=headers)
 
     return response.json()
