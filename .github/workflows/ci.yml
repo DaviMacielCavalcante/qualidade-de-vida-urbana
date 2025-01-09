@@ -32,4 +32,4 @@ jobs:
 
       - name: Testar com Cobertura
         run: |
-          pytest --cov=scripts
+          pytest --cov=pipe
