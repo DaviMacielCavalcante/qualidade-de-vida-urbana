@@ -39,4 +39,4 @@ jobs:
     # Execução dos testes com pytest e geração de relatório de cobertura
     - name: Run Tests with pytest
       run: |
-        pytest --cov=pipe --cov-report=term-missing
+        pytest --cov=fetcher --cov=pipe --cov-report=term-missing
