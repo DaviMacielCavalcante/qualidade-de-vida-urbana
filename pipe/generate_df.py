@@ -17,5 +17,15 @@ def generate_df():
         })
 
     df = pd.DataFrame(data_list)
+
+    df["datetime"] = pd.to_datetime(df["datetime"])
+    df["year"] = df["datetime"].dt.year
+    df["month"] = df["datetime"].dt.month
+    df["day"] = df["datetime"].dt.day
+    df["hour"] = df["datetime"].dt.hour
+    df.drop("datetime", axis=1, inplace=True)
+    df["latitude"] = df["latitude"].astype(float)
+    df["longitude"] = df["longitude"].astype(float)
+    df["value"] = df["value"].astype(float)
     return df
 
