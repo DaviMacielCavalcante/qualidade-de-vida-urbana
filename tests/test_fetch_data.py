@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch
 from pipe.json_data import return_json_body
 
