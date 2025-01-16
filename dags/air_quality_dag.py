@@ -9,7 +9,6 @@ import pandas as pd
 from pyspark.sql import SparkSession
 
 API_KEY = Variable.get('API_KEY', default_var=None)
-url = f'https://airquality.googleapis.com/v1/currentConditions:lookup?key={API_KEY}'
 latitude = Variable.get('LATITUDE', default_var=None)
 longitude = Variable.get('LONGITUDE', default_var=None)
 endpoint = f'currentConditions:lookup?key={API_KEY}'
@@ -39,7 +38,7 @@ def fetch_air_data(ti):
     ti.xcom_push(key="air_quality_api_data", value=response.json())
 
 def generate_df(ti):
-    data = ti.xcom_pull(task_ids='fetch_data', key='air_quality_api_data')
+    data = json.loads(ti.xcom_pull(task_ids='test_api', key='return_value'))
     
     data_list = []
 
@@ -85,38 +84,34 @@ def generate_parquet(ti):
 
 with DAG(
     'air_quality_etl',
-    start_date=datetime(2025, 1, 22),
+    start_date=datetime(2025, 1, 2),
     description='ETL for Air Quality Data',
     tags=['air_quality'],
     schedule=timedelta(hours=8),
     catchup=False) as dag:
 
-    # teste = SimpleHttpOperator(
-    #     task_id='test_api',
-    #     http_conn_id='air_quality_connection',
-    #     endpoint=endpoint,
-    #     method='POST',
-    #     data=json.dumps({
-    #         "universalAqi": "true",
-    #         "location": {
-    #             "latitude":latitude,
-    #             "longitude":longitude
-    #         },
-    #         "extraComputations": [
-    #             "DOMINANT_POLLUTANT_CONCENTRATION",
-    #             "POLLUTANT_CONCENTRATION",
-    #             "LOCAL_AQI"
-    #         ],
-    #         "languageCode": "pt-br"
-    #     }),
-    #     headers= headers,
-    #     response_check=lambda response: response.json(),
-    #     log_response=True
-    # )
-
-    task_fetch = PythonOperator(
-        task_id='fetch_data',
-        python_callable=fetch_air_data
+    task_fetch = SimpleHttpOperator(
+        task_id='test_api',
+        http_conn_id='air_quality_connection',
+        endpoint=endpoint,
+        method='POST',
+        data=json.dumps({
+            "universalAqi": "true",
+            "location": {
+                "latitude":latitude,
+                "longitude":longitude
+            },
+            "extraComputations": [
+                "DOMINANT_POLLUTANT_CONCENTRATION",
+                "POLLUTANT_CONCENTRATION",
+                "LOCAL_AQI"
+            ],
+            "languageCode": "pt-br"
+        }),
+        headers= headers,
+        response_check=lambda response: response.json(),
+        do_xcom_push=True,
+        log_response=True
     )
 
     task_generate_df = PythonOperator(
