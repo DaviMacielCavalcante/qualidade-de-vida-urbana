@@ -7,7 +7,6 @@ from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.amazon.aws.operators.s3 import S3CreateObjectOperator
 import duckdb
 import json
-import pandas as pd
 
 API_KEY = Variable.get('API_KEY')
 endpoint = f'currentConditions:lookup?key={API_KEY}'
@@ -50,9 +49,7 @@ def generate_data(ti):
 
     pollutants_data = conn.execute("SELECT * FROM pollutants_data").fetchall()
 
-    print(pollutants_data)
-
-    conn.execute("""
+    conn.execute(f"""
         COPY (
             SELECT *
             FROM pollutants_data
@@ -64,15 +61,51 @@ def generate_data(ti):
     ti.xcom_push(key='pollutants_data', value=pollutants_data)    
 
 
-def save(ti):
+def push_to_s3_raw():
 
-    pollutants_data = ti.xcom_pull(key='pollutants_data')
+    s3 = "desafio4-raw"
 
-    df = pd.DataFrame(pollutants_data, columns=['date_time', 'code', 'concentration_value', 'concentration_units'])
+    hook = S3Hook('aws-teste', region_name='sa-east-1')
+    
+    hook.load_file(filename='./data/bronze/pollutants_data.parquet', key=f'pollutants_data_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}.parquet', bucket_name=s3)
+    
+def push_to_s3_silver():
 
-    print(df)
+    s3 = "desafio4-silver"
 
-    df.to_csv('./data/bronze/pollutants_data.csv', index=False)
+    hook = S3Hook('aws-teste', region_name='sa-east-1')
+    
+    conn = duckdb.connect()
+
+    conn.execute("""
+        CREATE TABLE pollutants_data AS SELECT * FROM './data/bronze/pollutants_data.parquet'        
+    """)
+
+    conn.execute("""
+    CREATE TABLE pollutants_silver(
+        data DATETIME NOT NULL,
+        code VARCHAR(10) NOT NULL,
+        values NUMERIC(5,2) NOT NULL,
+        units VARCHAR(30) NOT NULL
+    )
+""")
+    
+    conn.execute("""
+    INSERT INTO pollutants_silver SELECT * FROM pollutants_data
+""")
+    
+    conn.execute(f"""
+        COPY (
+            SELECT *
+            FROM pollutants_silver
+        ) TO './data/silver/pollutants_data.parquet' (FORMAT PARQUET);
+    """)
+
+    conn.close()
+
+    hook.load_file(filename='./data/silver/pollutants_data.parquet', key=f'pollutants_data_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}.parquet', bucket_name=s3)
+
+
 
 with DAG(
     'air_quality_etl',
@@ -112,10 +145,14 @@ with DAG(
         provide_context=True
     )
 
-    task_save = PythonOperator(
-        task_id='save',
-        python_callable=save,
-        provide_context=True
+    task_s3_raw = PythonOperator(
+        task_id='push_to_s3_raw',
+        python_callable=push_to_s3_raw
     )
 
-    task_fetch >> task_generate_data >> task_save
+    task_s3_silver = PythonOperator(
+        task_id='push_to_s3_silver',
+        python_callable=push_to_s3_silver
+    )
+
+    task_fetch >> task_generate_data >> [task_s3_raw, task_s3_silver]
