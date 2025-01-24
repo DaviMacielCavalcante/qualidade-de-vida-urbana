@@ -4,7 +4,6 @@ from airflow.providers.http.operators.http import HttpOperator
 from airflow.operators.python import PythonOperator
 from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from airflow.providers.amazon.aws.operators.s3 import S3CreateObjectOperator
 import duckdb
 import json
 
@@ -60,7 +59,6 @@ def generate_data(ti):
 
     ti.xcom_push(key='pollutants_data', value=pollutants_data)    
 
-
 def push_to_s3_raw():
 
     s3 = "desafio4-raw"
@@ -104,6 +102,75 @@ def push_to_s3_silver():
     conn.close()
 
     hook.load_file(filename='./data/silver/pollutants_data.parquet', key=f'pollutants_data_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}.parquet', bucket_name=s3)
+
+def push_to_s3_gold():
+
+    s3 = "desafio4-gold"
+
+    hook = S3Hook('aws-teste', region_name='sa-east-1')
+    
+    conn = duckdb.connect()
+
+    conn.execute("""
+        CREATE TABLE pollutants_data AS SELECT * FROM './data/silver/pollutants_data.parquet'        
+    """)
+
+    conn.execute("""
+    CREATE TABLE pollutants_gold(
+        data DATETIME NOT NULL,
+        code VARCHAR(10) NOT NULL,
+        values NUMERIC(5,2) NOT NULL,
+        units VARCHAR(30) NOT NULL
+    )
+""")
+    
+    conn.execute("""
+    INSERT INTO pollutants_gold SELECT * FROM pollutants_data
+""")
+    
+    conn.execute("""
+    ALTER TABLE pollutants_gold
+    ADD COLUMN year INT
+""")
+    
+    conn.execute("""
+    ALTER TABLE pollutants_gold
+    ADD COLUMN month INT
+""")
+    
+    conn.execute("""
+    ALTER TABLE pollutants_gold
+    ADD COLUMN day INT
+""")
+    
+    conn.execute("""
+    ALTER TABLE pollutants_gold
+    ADD COLUMN time TIME
+""")
+    
+    conn.execute("""
+    UPDATE pollutants_gold
+        SET year = EXTRACT(YEAR FROM CAST("data" AS DATE)),
+            month = EXTRACT(MONTH FROM CAST("data" AS DATE)),
+            day = EXTRACT(DAY FROM CAST("data" AS DATE)),
+            time = CAST(strftime('%H:%M:%S', "data") AS TIME)
+""")
+    
+    conn.execute("UPDATE pollutants_gold SET units = LOWER(units)")
+    
+    conn.execute("ALTER TABLE pollutants_gold DROP COLUMN data")
+    
+    
+    conn.execute(f"""
+        COPY (
+            SELECT *
+            FROM pollutants_gold
+        ) TO './data/gold/pollutants_data.parquet' (FORMAT PARQUET);
+    """)
+
+    conn.close()
+
+    hook.load_file(filename='./data/gold/pollutants_data.parquet', key=f'pollutants_data_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}.parquet', bucket_name=s3)
 
 
 
@@ -155,4 +222,9 @@ with DAG(
         python_callable=push_to_s3_silver
     )
 
-    task_fetch >> task_generate_data >> [task_s3_raw, task_s3_silver]
+    task_s3_gold = PythonOperator(
+        task_id='push_to_s3_gold',
+        python_callable=push_to_s3_gold
+    )
+
+    task_fetch >> task_generate_data >> [task_s3_raw, task_s3_silver, task_s3_gold]
