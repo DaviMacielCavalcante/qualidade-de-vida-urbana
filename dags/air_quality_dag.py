@@ -4,6 +4,8 @@ from airflow.providers.http.operators.http import HttpOperator
 from airflow.operators.python import PythonOperator
 from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
+from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 import duckdb
 import json
 
@@ -21,32 +23,33 @@ def generate_data(ti):
 
     date_time = json_value["dateTime"]
     pollutants = json_value["pollutants"]
-
     conn = duckdb.connect()
 
     conn.execute("""
         CREATE TABLE pollutants_data (
             date_time TEXT,
             code TEXT,
+            latitude NUMERIC,
+            longitude NUMERIC,     
             concentration_value DOUBLE,
             concentration_units TEXT
         )
     """)
 
     conn.executemany(
-        "INSERT INTO pollutants_data VALUES (?, ?, ?, ?)",
+        "INSERT INTO pollutants_data VALUES (?, ?, ?,?, ?, ?)",
         [
             (
                 date_time,  # Mesmo valor de `dateTime` para todos os poluentes
                 pollutant["code"],
+                latitude,
+                longitude,
                 pollutant["concentration"]["value"],
                 pollutant["concentration"]["units"],
             )
             for pollutant in pollutants
         ]
     )
-
-    pollutants_data = conn.execute("SELECT * FROM pollutants_data").fetchall()
 
     conn.execute(f"""
         COPY (
@@ -55,9 +58,7 @@ def generate_data(ti):
         ) TO './data/bronze/pollutants_data.parquet' (FORMAT PARQUET);
     """)
 
-    conn.close()
-
-    ti.xcom_push(key='pollutants_data', value=pollutants_data)    
+    conn.close()   
 
 def push_to_s3_raw():
 
@@ -83,6 +84,8 @@ def push_to_s3_silver():
     CREATE TABLE pollutants_silver(
         data DATETIME NOT NULL,
         code VARCHAR(10) NOT NULL,
+        latitude NUMERIC NOT NULL,
+        longitude NUMERIC NOT NULL,
         values NUMERIC(5,2) NOT NULL,
         units VARCHAR(30) NOT NULL
     )
@@ -92,7 +95,7 @@ def push_to_s3_silver():
     INSERT INTO pollutants_silver SELECT * FROM pollutants_data
 """)
     
-    conn.execute(f"""
+    conn.execute("""
         COPY (
             SELECT *
             FROM pollutants_silver
@@ -119,6 +122,8 @@ def push_to_s3_gold():
     CREATE TABLE pollutants_gold(
         data DATETIME NOT NULL,
         code VARCHAR(10) NOT NULL,
+        latitude NUMERIC NOT NULL,
+        longitude NUMERIC NOT NULL,
         values NUMERIC(5,2) NOT NULL,
         units VARCHAR(30) NOT NULL
     )
@@ -186,6 +191,8 @@ def push_to_s3_diamond():
 
     conn.execute("""CREATE TABLE pollutants_diamond(
         code_id INT,     
+        latitude NUMERIC,
+        longitude NUMERIC,
         values NUMERIC(5,2),
         units_id INT,
         year_id INT,
@@ -225,10 +232,10 @@ def push_to_s3_diamond():
 """)
     
     conn.execute("""
-    INSERT INTO pollutants_diamond (code_id, values, units_id, year_id, month_id, day_id, time)
+    INSERT INTO pollutants_diamond (code_id, values, latitude, longitude, units_id, year_id, month_id, day_id, time)
     SELECT
         (SELECT id FROM codes WHERE code = pollutants_data.code),
-        values,
+        values, latitude, longitude,
         (SELECT id FROM units WHERE units = pollutants_data.units),
         (SELECT id FROM years WHERE year = pollutants_data.year),
         (SELECT id FROM months WHERE month = pollutants_data.month),
@@ -294,6 +301,134 @@ def push_to_s3_diamond():
     hook.load_file(filename='./data/diamond/units.parquet', key=f'units_{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}.parquet', bucket_name=s3)
 
 
+def create_postgres_tables():
+    hook = PostgresHook(postgres_conn_id='postgres_raw')
+
+    create_query = """
+        CREATE TABLE IF NOT EXISTS pollutants_raw(
+        id SERIAL PRIMARY KEY,
+        datetime VARCHAR(30) NOT NULL,
+        latitude VARCHAR(30) NOT NULL,
+        longitude VARCHAR(30) NOT NULL,
+        pollutant VARCHAR(10) NOT NULL,
+        value DECIMAL(5,2) NOT NULL,
+        unit VARCHAR(30) NOT NULL
+        )
+    """
+
+    hook.run(create_query)
+
+    hook = PostgresHook(postgres_conn_id='postgres_silver')
+
+    create_query = """
+        CREATE TABLE IF NOT EXISTS pollutants_silver(
+        id SERIAL PRIMARY KEY,
+        datetime TIMESTAMP NOT NULL,
+        latitude NUMERIC(16,15) NOT NULL,
+        longitude NUMERIC(16,15) NOT NULL,
+        pollutant VARCHAR(10) NOT NULL,
+        value DECIMAL(5,2) NOT NULL,
+        unit VARCHAR(30) NOT NULL
+        )
+    """
+
+    hook.run(create_query)
+
+    hook = PostgresHook(postgres_conn_id='postgres_gold')
+
+    create_query = """
+        CREATE TABLE IF NOT EXISTS pollutants_gold(
+        id SERIAL PRIMARY KEY,
+        datetime TIMESTAMP NOT NULL,
+        latitude NUMERIC(16,15) NOT NULL,
+        longitude NUMERIC(16,15) NOT NULL,
+        pollutant VARCHAR(10) NOT NULL,
+        value DECIMAL(5,2) NOT NULL,
+        unit VARCHAR(30) NOT NULL,
+        year INT NOT NULL,
+        month INT NOT NULL,
+        day INT NOT NULL,
+        time TIMESTAMP NOT NULL
+        )
+    """
+
+    hook.run(create_query)
+
+    hook = PostgresHook(postgres_conn_id='postgres_diamond')
+
+    create_query = """
+        CREATE TABLE IF NOT EXISTS code(
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(10) NOT NULL
+        )
+    """
+
+    hook.run(create_query)
+
+    create_query = """
+        CREATE TABLE IF NOT EXISTS units(
+            id SERIAL PRIMARY KEY,
+            unit VARCHAR(30) NOT NULL
+        )
+    """
+
+    hook.run(create_query)
+
+    create_query = """
+        CREATE TABLE IF NOT EXISTS years(
+            id SERIAL PRIMARY KEY,
+            year INT NOT NULL
+        )
+    """
+
+    hook.run(create_query)
+
+    create_query = """
+        CREATE TABLE IF NOT EXISTS months(
+            id SERIAL PRIMARY KEY,
+            month INT NOT NULL
+        )
+    """
+
+    hook.run(create_query)
+
+    create_query = """
+        CREATE TABLE IF NOT EXISTS days(
+            id SERIAL PRIMARY KEY,
+            day INT NOT NULL
+        )
+    """
+
+    hook.run(create_query)
+
+    create_query = """
+        CREATE TABLE IF NOT EXISTS pollutants_diamond(
+        id SERIAL PRIMARY KEY,
+        code_id INTEGER NOT NULL REFERENCES code(id),
+        latitude NUMERIC(16,15) NOT NULL,
+        longitude NUMERIC(16,15) NOT NULL,
+        value DECIMAL(5,2) NOT NULL,
+        unit_id INTEGER NOT NULL REFERENCES units(id),
+        year_id INTEGER NOT NULL REFERENCES years(id),
+        month_id INTEGER NOT NULL REFERENCES months(id),
+        day_id INTEGER NOT NULL REFERENCES days(id),
+        time TIMESTAMP NOT NULL
+        )
+    """
+
+    hook.run(create_query)
+
+
+def push_to_postgres_raw():
+
+    hook = PostgresHook(postgres_conn_id='postgres_raw')
+
+    insert_query = """
+        INSERT INTO 
+    """
+
+    return
+
 with DAG(
     'air_quality_etl',
     start_date=datetime(2025, 1, 2),
@@ -352,4 +487,9 @@ with DAG(
         python_callable=push_to_s3_diamond
     )
 
-    task_fetch >> task_generate_data >> [task_s3_raw, task_s3_silver, task_s3_gold, task_s3_diamond]
+    task_create_tables = PythonOperator(
+        task_id='create_postgres_tables',
+        python_callable=create_postgres_tables
+    )
+
+    task_fetch >> task_generate_data >> [task_s3_raw, task_s3_silver, task_s3_gold, task_s3_diamond] >> task_create_tables
