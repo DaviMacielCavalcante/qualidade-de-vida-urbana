@@ -308,9 +308,9 @@ def create_postgres_tables():
         CREATE TABLE IF NOT EXISTS pollutants_raw(
         id SERIAL PRIMARY KEY,
         datetime VARCHAR(30) NOT NULL,
+        pollutant VARCHAR(10) NOT NULL,
         latitude VARCHAR(30) NOT NULL,
         longitude VARCHAR(30) NOT NULL,
-        pollutant VARCHAR(10) NOT NULL,
         value DECIMAL(5,2) NOT NULL,
         unit VARCHAR(30) NOT NULL
         )
@@ -324,9 +324,9 @@ def create_postgres_tables():
         CREATE TABLE IF NOT EXISTS pollutants_silver(
         id SERIAL PRIMARY KEY,
         datetime TIMESTAMP NOT NULL,
-        latitude NUMERIC(16,15) NOT NULL,
-        longitude NUMERIC(16,15) NOT NULL,
         pollutant VARCHAR(10) NOT NULL,
+        latitude NUMERIC(6,3) NOT NULL,
+        longitude NUMERIC(6,3) NOT NULL,
         value DECIMAL(5,2) NOT NULL,
         unit VARCHAR(30) NOT NULL
         )
@@ -340,9 +340,9 @@ def create_postgres_tables():
         CREATE TABLE IF NOT EXISTS pollutants_gold(
         id SERIAL PRIMARY KEY,
         datetime TIMESTAMP NOT NULL,
-        latitude NUMERIC(16,15) NOT NULL,
-        longitude NUMERIC(16,15) NOT NULL,
         pollutant VARCHAR(10) NOT NULL,
+        latitude NUMERIC(6,3) NOT NULL,
+        longitude NUMERIC(6,3) NOT NULL,
         value DECIMAL(5,2) NOT NULL,
         unit VARCHAR(30) NOT NULL,
         year INT NOT NULL,
@@ -405,8 +405,8 @@ def create_postgres_tables():
         CREATE TABLE IF NOT EXISTS pollutants_diamond(
         id SERIAL PRIMARY KEY,
         code_id INTEGER NOT NULL REFERENCES code(id),
-        latitude NUMERIC(16,15) NOT NULL,
-        longitude NUMERIC(16,15) NOT NULL,
+        latitude NUMERIC(6,3) NOT NULL,
+        longitude NUMERIC(6,3) NOT NULL,
         value DECIMAL(5,2) NOT NULL,
         unit_id INTEGER NOT NULL REFERENCES units(id),
         year_id INTEGER NOT NULL REFERENCES years(id),
@@ -423,11 +423,41 @@ def push_to_postgres_raw():
 
     hook = PostgresHook(postgres_conn_id='postgres_raw')
 
+    conn = duckdb.connect()
+
+    conn.execute("CREATE TABLE pollutants_raw AS SELECT * FROM read_parquet('./data/bronze/pollutants_data.parquet')")
+    data = conn.execute("SELECT * FROM pollutants_raw").fetchall()
+
     insert_query = """
-        INSERT INTO 
+        INSERT INTO pollutants_raw(datetime, pollutant, latitude, longitude, value, unit)  
+        VALUES (%s, %s, %s, %s, %s, %s)
     """
 
-    return
+    for row in data:
+        hook.run(insert_query, parameters=row)
+
+    conn.close()
+
+def push_to_postgres_silver():
+
+    hook = PostgresHook(postgres_conn_id='postgres_silver')
+
+    conn = duckdb.connect()
+
+    conn.execute("CREATE TABLE pollutants_silver AS SELECT * FROM read_parquet('./data/silver/pollutants_data.parquet')")
+    data = conn.execute("SELECT * FROM pollutants_silver").fetchall()
+
+    print(data)
+
+    insert_query = """
+        INSERT INTO pollutants_silver(datetime, pollutant,latitude, longitude, value, unit)  
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """
+
+    for row in data:
+        hook.run(insert_query, parameters=row)
+
+    conn.close()
 
 with DAG(
     'air_quality_etl',
@@ -492,4 +522,14 @@ with DAG(
         python_callable=create_postgres_tables
     )
 
-    task_fetch >> task_generate_data >> [task_s3_raw, task_s3_silver, task_s3_gold, task_s3_diamond] >> task_create_tables
+    task_push_to_raw = PythonOperator(
+        task_id='push_to_postgres_raw',
+        python_callable=push_to_postgres_raw
+    )
+
+    task_push_to_silver = PythonOperator(
+        task_id='push_to_postgres_silver',
+        python_callable=push_to_postgres_silver
+    )
+
+    task_fetch >> task_generate_data >> [task_s3_raw, task_s3_silver, task_s3_gold, task_s3_diamond] >> task_create_tables >> task_push_to_raw >> task_push_to_silver
