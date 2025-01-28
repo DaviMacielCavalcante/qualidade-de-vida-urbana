@@ -339,7 +339,6 @@ def create_postgres_tables():
     create_query = """
         CREATE TABLE IF NOT EXISTS pollutants_gold(
         id SERIAL PRIMARY KEY,
-        datetime TIMESTAMP NOT NULL,
         pollutant VARCHAR(10) NOT NULL,
         latitude NUMERIC(6,3) NOT NULL,
         longitude NUMERIC(6,3) NOT NULL,
@@ -348,7 +347,7 @@ def create_postgres_tables():
         year INT NOT NULL,
         month INT NOT NULL,
         day INT NOT NULL,
-        time TIMESTAMP NOT NULL
+        time TIME WITHOUT TIME ZONE NOT NULL
         )
     """
 
@@ -412,7 +411,7 @@ def create_postgres_tables():
         year_id INTEGER NOT NULL REFERENCES years(id),
         month_id INTEGER NOT NULL REFERENCES months(id),
         day_id INTEGER NOT NULL REFERENCES days(id),
-        time TIMESTAMP NOT NULL
+        time TIME WITHOUT TIME ZONE NOT NULL
         )
     """
 
@@ -452,6 +451,27 @@ def push_to_postgres_silver():
     insert_query = """
         INSERT INTO pollutants_silver(datetime, pollutant,latitude, longitude, value, unit)  
         VALUES (%s, %s, %s, %s, %s, %s)
+    """
+
+    for row in data:
+        hook.run(insert_query, parameters=row)
+
+    conn.close()
+
+def push_to_postgres_gold():
+
+    hook = PostgresHook(postgres_conn_id='postgres_gold')
+
+    conn = duckdb.connect()
+
+    conn.execute("CREATE TABLE pollutants_gold AS SELECT * FROM read_parquet('./data/gold/pollutants_data.parquet')")
+    data = conn.execute("SELECT * FROM pollutants_gold").fetchall()
+
+    print(data)
+
+    insert_query = """
+        INSERT INTO pollutants_gold(pollutant,latitude, longitude, value, unit, year, month, day, time)  
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
 
     for row in data:
@@ -532,4 +552,9 @@ with DAG(
         python_callable=push_to_postgres_silver
     )
 
-    task_fetch >> task_generate_data >> [task_s3_raw, task_s3_silver, task_s3_gold, task_s3_diamond] >> task_create_tables >> task_push_to_raw >> task_push_to_silver
+    task_push_to_gold = PythonOperator(
+        task_id='push_to_postgres_gold',
+        python_callable=push_to_postgres_gold
+    )
+
+    task_fetch >> task_generate_data >> [task_s3_raw, task_s3_silver, task_s3_gold, task_s3_diamond] >> task_create_tables >> task_push_to_raw >> task_push_to_silver >> task_push_to_gold
