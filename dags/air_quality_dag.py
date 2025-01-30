@@ -190,57 +190,48 @@ def push_to_s3_diamond():
     """)
 
     conn.execute("""CREATE TABLE pollutants_diamond(
-        code_id INT,     
+        code VARCHAR,     
         latitude NUMERIC,
         longitude NUMERIC,
         values NUMERIC(5,2),
-        units_id INT,
-        year_id INT,
-        month_id int,
-        day_id INT,
+        units VARCHAR(30),
+        year INT,
+        month INT,
+        day INT,
         time TIME             
     )""")
 
     conn.execute("""
     CREATE TABLE codes AS
-    SELECT ROW_NUMBER() OVER () AS id, code
-    FROM (SELECT DISTINCT code FROM pollutants_data);
+    SELECT DISTINCT code FROM pollutants_data;
 """)
     
     conn.execute("""
-    CREATE TABLE years AS
-    SELECT ROW_NUMBER() OVER () AS id, year
-    FROM (SELECT DISTINCT year FROM pollutants_data);
+    CREATE TABLE years AS SELECT DISTINCT year FROM pollutants_data;
 """)
     
     conn.execute("""
-    CREATE TABLE months AS
-    SELECT ROW_NUMBER() OVER () AS id, month
-    FROM (SELECT DISTINCT month FROM pollutants_data);
+    CREATE TABLE months AS SELECT DISTINCT month FROM pollutants_data;
 """)
     
     conn.execute("""
-    CREATE TABLE days AS
-    SELECT ROW_NUMBER() OVER () AS id, day
-    FROM (SELECT DISTINCT day FROM pollutants_data);
+    CREATE TABLE days AS SELECT DISTINCT day FROM pollutants_data;
 """)
     
     conn.execute("""
-    CREATE TABLE units AS
-    SELECT ROW_NUMBER() OVER () AS id, units
-    FROM (SELECT DISTINCT units FROM pollutants_data);
+    CREATE TABLE units AS SELECT DISTINCT units FROM pollutants_data;
 """)
     
     conn.execute("""
-    INSERT INTO pollutants_diamond (code_id, values, latitude, longitude, units_id, year_id, month_id, day_id, time)
+    INSERT INTO pollutants_diamond (code, values, latitude, longitude, units, year, month, day, time)
     SELECT
-        (SELECT id FROM codes WHERE code = pollutants_data.code),
+        code,
         values, latitude, longitude,
-        (SELECT id FROM units WHERE units = pollutants_data.units),
-        (SELECT id FROM years WHERE year = pollutants_data.year),
-        (SELECT id FROM months WHERE month = pollutants_data.month),
-        (SELECT id FROM days WHERE day = pollutants_data.day),
-        pollutants_data.time
+        units,
+        year,
+        month,
+        day,
+        time
     FROM pollutants_data;    
 """)
     
@@ -356,7 +347,7 @@ def create_postgres_tables():
     hook = PostgresHook(postgres_conn_id='postgres_diamond')
 
     create_query = """
-        CREATE TABLE IF NOT EXISTS code(
+        CREATE TABLE IF NOT EXISTS codes(
             id SERIAL PRIMARY KEY,
             code VARCHAR(10) NOT NULL
         )
@@ -403,7 +394,7 @@ def create_postgres_tables():
     create_query = """
         CREATE TABLE IF NOT EXISTS pollutants_diamond(
         id SERIAL PRIMARY KEY,
-        code_id INTEGER NOT NULL REFERENCES code(id),
+        code_id INTEGER NOT NULL REFERENCES codes(id),
         latitude NUMERIC(6,3) NOT NULL,
         longitude NUMERIC(6,3) NOT NULL,
         value DECIMAL(5,2) NOT NULL,
@@ -446,8 +437,6 @@ def push_to_postgres_silver():
     conn.execute("CREATE TABLE pollutants_silver AS SELECT * FROM read_parquet('./data/silver/pollutants_data.parquet')")
     data = conn.execute("SELECT * FROM pollutants_silver").fetchall()
 
-    print(data)
-
     insert_query = """
         INSERT INTO pollutants_silver(datetime, pollutant,latitude, longitude, value, unit)  
         VALUES (%s, %s, %s, %s, %s, %s)
@@ -466,9 +455,6 @@ def push_to_postgres_gold():
 
     conn.execute("CREATE TABLE pollutants_gold AS SELECT * FROM read_parquet('./data/gold/pollutants_data.parquet')")
     data = conn.execute("SELECT * FROM pollutants_gold").fetchall()
-
-    print(data)
-
     insert_query = """
         INSERT INTO pollutants_gold(pollutant,latitude, longitude, value, unit, year, month, day, time)  
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -479,6 +465,141 @@ def push_to_postgres_gold():
 
     conn.close()
 
+def push_to_postgres_diamond():
+
+    hook = PostgresHook(postgres_conn_id='postgres_diamond')
+
+    conn = duckdb.connect()
+
+    # Tabela principal
+
+    conn.execute("CREATE TABLE pollutants_gold AS SELECT * FROM read_parquet('./data/gold/pollutants_data.parquet')")
+
+    data_main = conn.execute("SELECT * FROM pollutants_gold").fetchall()
+
+    # Tabela dias
+
+    conn.execute("CREATE TABLE days AS SELECT DISTINCT * FROM read_parquet('./data/diamond/days.parquet')").fetchall()
+
+    days_data = conn.execute("SELECT * FROM days").fetchall()
+
+    insert_query = """
+        INSERT INTO days(day)  
+        VALUES (%s)
+    """    
+
+    for row in days_data:
+        hook.run(insert_query, parameters=row)
+
+    # Tabela codes
+
+    conn.execute("CREATE TABLE code AS SELECT DISTINCT * FROM read_parquet('./data/diamond/codes.parquet')").fetchall()
+
+    code_data = conn.execute("SELECT * FROM code").fetchall()
+
+    insert_query = """
+        INSERT INTO codes(code)  
+        VALUES (%s)
+    """    
+
+    for row in code_data:
+        hook.run(insert_query, parameters=row)
+
+    # Tabela units
+
+    conn.execute("CREATE TABLE units AS SELECT DISTINCT * FROM read_parquet('./data/diamond/units.parquet')").fetchall()
+
+    units_data = conn.execute("SELECT * FROM units").fetchall()
+
+    insert_query = """
+        INSERT INTO units(unit)  
+        VALUES (%s)
+    """    
+
+    for row in units_data:
+        hook.run(insert_query, parameters=row)
+
+    # Tabela years
+
+    conn.execute("CREATE TABLE years AS SELECT DISTINCT * FROM read_parquet('./data/diamond/years.parquet')").fetchall()
+
+    years_data = conn.execute("SELECT * FROM years").fetchall()
+
+    insert_query = """
+        INSERT INTO years(year)  
+        VALUES (%s)
+    """    
+
+    for row in years_data:
+        hook.run(insert_query, parameters=row)
+
+    # Tabela months
+
+    conn.execute("CREATE TABLE months AS SELECT DISTINCT * FROM read_parquet('./data/diamond/months.parquet')").fetchall()
+
+    months_data = conn.execute("SELECT * FROM months").fetchall()
+
+    insert_query = """
+        INSERT INTO months(month)  
+        VALUES (%s)
+    """    
+
+    for row in months_data:
+        hook.run(insert_query, parameters=row)
+
+
+    # Tabela main
+
+    hook = PostgresHook(postgres_conn_id='postgres_diamond')
+    postgres_conn = hook.get_conn()
+    cursor = postgres_conn.cursor()
+
+    # Query SQL corrigida, sem placeholders para colunas nos JOINs
+    insert_query = """
+        INSERT INTO pollutants_diamond (code_id, latitude, longitude, value, unit_id, year_id, month_id, day_id, time)
+        SELECT
+            c.id AS code_id,
+            %s,  -- latitude (valor direto)
+            %s,  -- longitude (valor direto)
+            %s,  -- value (valor direto)
+            u.id AS unit_id,
+            y.id AS year_id,
+            m.id AS month_id,
+            d.id AS day_id,
+            %s::TIME  -- time (valor direto convertido para TIME)
+        FROM codes c
+        JOIN units u ON u.unit = %s
+        JOIN years y ON y.year = %s
+        JOIN months m ON m.month = %s
+        JOIN days d ON d.day = %s
+        WHERE c.code = %s;
+    """
+
+    # Ajustando os parâmetros corretamente
+    data_to_insert = [
+        (
+            float(row[1]),  # latitude
+            float(row[2]),  # longitude
+            float(row[3]),  # value
+            str(row[8]),  # time (convertido para string)
+            row[4],  # unit (para JOIN)
+            row[5],  # year (para JOIN)
+            row[6],  # month (para JOIN)
+            row[7],  # day (para JOIN)
+            row[0],  # code (para JOIN)
+        )
+        for row in data_main
+    ]
+
+    # Executar a inserção em lote
+    cursor.executemany(insert_query, data_to_insert)
+
+    # Commit e fechamento da conexão
+    postgres_conn.commit()
+    cursor.close()
+    postgres_conn.close()
+
+    
 with DAG(
     'air_quality_etl',
     start_date=datetime(2025, 1, 2),
@@ -557,4 +678,9 @@ with DAG(
         python_callable=push_to_postgres_gold
     )
 
-    task_fetch >> task_generate_data >> [task_s3_raw, task_s3_silver, task_s3_gold, task_s3_diamond] >> task_create_tables >> task_push_to_raw >> task_push_to_silver >> task_push_to_gold
+    task_push_to_diamond = PythonOperator(
+        task_id='push_to_postgres_diamond',
+        python_callable=push_to_postgres_diamond
+    )
+
+    task_fetch >> task_generate_data >> [task_s3_raw, task_s3_silver, task_s3_gold, task_s3_diamond] >> task_create_tables >> task_push_to_raw >> task_push_to_silver >> task_push_to_gold >> task_push_to_diamond
