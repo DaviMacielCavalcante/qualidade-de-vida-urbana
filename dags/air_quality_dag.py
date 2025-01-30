@@ -349,7 +349,7 @@ def create_postgres_tables():
     create_query = """
         CREATE TABLE IF NOT EXISTS codes(
             id SERIAL PRIMARY KEY,
-            code VARCHAR(10) NOT NULL
+            code VARCHAR(10) NOT NULL UNIQUE
         )
     """
 
@@ -358,7 +358,7 @@ def create_postgres_tables():
     create_query = """
         CREATE TABLE IF NOT EXISTS units(
             id SERIAL PRIMARY KEY,
-            unit VARCHAR(30) NOT NULL
+            unit VARCHAR(30) NOT NULL UNIQUE
         )
     """
 
@@ -367,7 +367,7 @@ def create_postgres_tables():
     create_query = """
         CREATE TABLE IF NOT EXISTS years(
             id SERIAL PRIMARY KEY,
-            year INT NOT NULL
+            year INT NOT NULL UNIQUE
         )
     """
 
@@ -376,7 +376,7 @@ def create_postgres_tables():
     create_query = """
         CREATE TABLE IF NOT EXISTS months(
             id SERIAL PRIMARY KEY,
-            month INT NOT NULL
+            month INT NOT NULL UNIQUE
         )
     """
 
@@ -385,7 +385,7 @@ def create_postgres_tables():
     create_query = """
         CREATE TABLE IF NOT EXISTS days(
             id SERIAL PRIMARY KEY,
-            day INT NOT NULL
+            day INT NOT NULL UNIQUE
         )
     """
 
@@ -488,8 +488,13 @@ def push_to_postgres_diamond():
         VALUES (%s)
     """    
 
-    for row in days_data:
-        hook.run(insert_query, parameters=row)
+    try:
+        for row in days_data:
+            hook.run(insert_query, parameters=row)
+    except Exception as e:
+        print("Erro ao inserir dados na tabela days:", e)
+    finally:
+        print("Dados duplicados, pulando etapa.")
 
     # Tabela codes
 
@@ -501,9 +506,13 @@ def push_to_postgres_diamond():
         INSERT INTO codes(code)  
         VALUES (%s)
     """    
-
-    for row in code_data:
-        hook.run(insert_query, parameters=row)
+    try:
+        for row in code_data:
+            hook.run(insert_query, parameters=row)
+    except Exception as e:
+        print("Erro ao inserir dados na tabela codes:", e)
+    finally:
+        print("Dados duplicados, pulando etapa.")
 
     # Tabela units
 
@@ -516,8 +525,14 @@ def push_to_postgres_diamond():
         VALUES (%s)
     """    
 
-    for row in units_data:
-        hook.run(insert_query, parameters=row)
+    try:
+        for row in units_data:
+            hook.run(insert_query, parameters=row)
+    except Exception as e:
+        print("Erro ao inserir dados na tabela units:", e)
+    finally:
+        print("Dados duplicados, pulando etapa.")
+
 
     # Tabela years
 
@@ -530,8 +545,13 @@ def push_to_postgres_diamond():
         VALUES (%s)
     """    
 
-    for row in years_data:
-        hook.run(insert_query, parameters=row)
+    try:
+        for row in years_data:
+            hook.run(insert_query, parameters=row)
+    except Exception as e:
+        print("Erro ao inserir dados na tabela years:", e)
+    finally:
+        print("Dados duplicados, pulando etapa.")
 
     # Tabela months
 
@@ -544,8 +564,13 @@ def push_to_postgres_diamond():
         VALUES (%s)
     """    
 
-    for row in months_data:
-        hook.run(insert_query, parameters=row)
+    try:
+        for row in months_data:
+            hook.run(insert_query, parameters=row)
+    except Exception as e:
+        print("Erro ao inserir dados na tabela months:", e)
+    finally:
+        print("Dados duplicados, pulando etapa.")
 
 
     # Tabela main
@@ -599,7 +624,7 @@ def push_to_postgres_diamond():
     cursor.close()
     postgres_conn.close()
 
-    
+
 with DAG(
     'air_quality_etl',
     start_date=datetime(2025, 1, 2),
