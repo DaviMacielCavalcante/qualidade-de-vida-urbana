@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from airflow.providers.http.operators.http import HttpOperator
-from airflow.operators.python import PythonOperator
 from airflow.models import Variable
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 from airflow.providers.postgres.hooks.postgres import PostgresHook
@@ -44,9 +43,9 @@ def air_quality_etl():
     )
 
     @task
-    def generate_data(ti=None):
+    def generate_data(json_response: json):
 
-        json_value = json.loads(ti.xcom_pull(task_ids='fetch_data', key='return_value'))
+        json_value = json.loads(json_response)
 
         date_time = json_value["dateTime"]
         pollutants = json_value["pollutants"]
@@ -658,6 +657,6 @@ def air_quality_etl():
         cursor.close()
         postgres_conn.close()
 
-    task_fetch >> generate_data() >> [push_to_s3_raw(), push_to_s3_silver(), push_to_s3_gold(), push_to_s3_diamond()] >> create_postgres_tables() >> push_to_postgres_raw() >> push_to_postgres_silver() >> push_to_postgres_gold() >> push_to_postgres_diamond()
+    generate_data(json_response=task_fetch.output) >> [push_to_s3_raw(), push_to_s3_silver(), push_to_s3_gold(), push_to_s3_diamond()] >> create_postgres_tables() >> push_to_postgres_raw() >> push_to_postgres_silver() >> push_to_postgres_gold() >> push_to_postgres_diamond()
 
 air_quality_etl()
