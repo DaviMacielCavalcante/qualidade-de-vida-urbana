@@ -16,7 +16,7 @@ headers = {
     "Content-Type": "application/json"
     }
 
-@dag(start_date=datetime(2025, 1, 2), schedule=timedelta(hours=8), catchup=False, description='ETL for Air Quality Data', tags=['air_quality'])
+@dag(start_date=datetime(2025, 1, 6), schedule=timedelta(hours=8), catchup=False, description='ETL for Air Quality Data', tags=['air_quality'])
 def air_quality_etl():
 
     with TaskGroup(group_id="get_data") as get_data:
