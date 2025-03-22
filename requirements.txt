@@ -1,1 +1,4 @@
-duckdb>=1.2.1
+apache-airflow-providers-postgres>=6.1.1
+ipykernel>=6.29.5
+psycopg2-binary>=2.9.10
+requests>=2.32.3
