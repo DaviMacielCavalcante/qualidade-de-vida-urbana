@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
 from airflow.providers.http.operators.http import HttpOperator
 from airflow.models import Variable
+from airflow.models.baseoperator import chain
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.decorators import dag,task
 from airflow.utils.task_group import TaskGroup
 import json
@@ -74,7 +76,29 @@ def air_quality_etl():
             sql='SQL/DDL/weather/create_tables_raw.sql'
         )
 
-        task_create_schemas_raw >> [task_create_google_tables_raw, task_create_weather_tables_raw]
+        @task
+        def task_insert_google_raw(json_data: dict):
+            hook = PostgresHook(postgres_conn_id='postgres_conn')
+
+            insert_query = """
+                INSERT INTO google.google_api_data(data)
+                VALUES (%s)            
+            """
+
+            hook.run(insert_query, parameters=(json_data,))   
+
+        @task
+        def task_insert_weather_raw(json_data: dict):
+            hook = PostgresHook(postgres_conn_id='postgres_conn')
+
+            insert_query = """
+                INSERT INTO weather.weather_api_data(data)
+                VALUES (%s)            
+            """
+
+            hook.run(insert_query, parameters=(json_data,))   
+
+        chain(task_create_schemas_raw, [task_create_google_tables_raw, task_create_weather_tables_raw], [task_insert_google_raw(task_fetch_google_api.output), task_insert_weather_raw(task_fetch_weather_api.output)])
 
        
     [task_fetch_google_api, task_fetch_weather_api] >> push_to_postgres
