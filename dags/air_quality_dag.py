@@ -58,47 +58,47 @@ def air_quality_etl():
 
     with TaskGroup(group_id="push_to_postgres") as push_to_postgres:
 
-        task_create_schemas_raw = SQLExecuteQueryOperator(
-            task_id='create_schemas_raw',
+        task_create_schemas= SQLExecuteQueryOperator(
+            task_id='create_schemas_bronze',
             conn_id='postgres_conn',
             sql='SQL/DDL/create_schemas.sql'
         )
 
-        task_create_google_tables_raw = SQLExecuteQueryOperator(
-            task_id='create_google_tables_raw',
+        task_create_google_tables_bronze = SQLExecuteQueryOperator(
+            task_id='create_google_tables_bronze',
             conn_id='postgres_conn',
-            sql='SQL/DDL/google/create_tables_raw.sql'
+            sql='SQL/DDL/google/create_tables_bronze.sql'
         )
 
-        task_create_weather_tables_raw = SQLExecuteQueryOperator(
-            task_id='create_weather_tables_raw',
+        task_create_weather_tables_bronze = SQLExecuteQueryOperator(
+            task_id='create_weather_tables_bronze',
             conn_id='postgres_conn',
-            sql='SQL/DDL/weather/create_tables_raw.sql'
+            sql='SQL/DDL/weather/create_tables_bronze.sql'
         )
 
         @task
-        def task_insert_google_raw(json_data: dict):
+        def task_insert_google_bronze(json_data: dict):
             hook = PostgresHook(postgres_conn_id='postgres_conn')
 
             insert_query = """
-                INSERT INTO google.google_api_data(data)
+                INSERT INTO bronze.google_api_data(data)
                 VALUES (%s)            
             """
 
             hook.run(insert_query, parameters=(json_data,))   
 
         @task
-        def task_insert_weather_raw(json_data: dict):
+        def task_insert_weather_bronze(json_data: dict):
             hook = PostgresHook(postgres_conn_id='postgres_conn')
 
             insert_query = """
-                INSERT INTO weather.weather_api_data(data)
+                INSERT INTO bronze.weather_api_data(data)
                 VALUES (%s)            
             """
 
             hook.run(insert_query, parameters=(json_data,))   
 
-        chain(task_create_schemas_raw, [task_create_google_tables_raw, task_create_weather_tables_raw], [task_insert_google_raw(task_fetch_google_api.output), task_insert_weather_raw(task_fetch_weather_api.output)])
+        chain(task_create_schemas, [task_create_google_tables_bronze, task_create_weather_tables_bronze], [task_insert_google_bronze(task_fetch_google_api.output), task_insert_weather_bronze(task_fetch_weather_api.output)])
 
        
     [task_fetch_google_api, task_fetch_weather_api] >> push_to_postgres
