@@ -59,21 +59,33 @@ def air_quality_etl():
     with TaskGroup(group_id="push_to_postgres") as push_to_postgres:
 
         task_create_schemas= SQLExecuteQueryOperator(
-            task_id='create_schemas_bronze',
+            task_id='create_schemas',
             conn_id='postgres_conn',
             sql='SQL/DDL/create_schemas.sql'
         )
 
-        task_create_google_tables_bronze = SQLExecuteQueryOperator(
-            task_id='create_google_tables_bronze',
+        task_create_google_tables = SQLExecuteQueryOperator(
+            task_id='create_google_tables',
             conn_id='postgres_conn',
-            sql='SQL/DDL/google/create_tables_bronze.sql'
+            sql='SQL/DDL/google/create_tables.sql'
         )
 
-        task_create_weather_tables_bronze = SQLExecuteQueryOperator(
-            task_id='create_weather_tables_bronze',
+        task_create_google_triggers = SQLExecuteQueryOperator(
+            task_id='create_google_triggers',
             conn_id='postgres_conn',
-            sql='SQL/DDL/weather/create_tables_bronze.sql'
+            sql='SQL/DDL/google/triggers_google.sql'
+        )
+
+        task_create_weather_tables = SQLExecuteQueryOperator(
+            task_id='create_weather_tables',
+            conn_id='postgres_conn',
+            sql='SQL/DDL/weather/create_tables.sql'
+        )
+
+        task_create_weather_triggers = SQLExecuteQueryOperator(
+            task_id='create_weather_triggers',
+            conn_id='postgres_conn',
+            sql='SQL/DDL/weather/triggers_weather.sql'
         )
 
         @task
@@ -98,10 +110,10 @@ def air_quality_etl():
 
             hook.run(insert_query, parameters=(json_data,))   
 
-        chain(task_create_schemas, [task_create_google_tables_bronze, task_create_weather_tables_bronze], [task_insert_google_bronze(task_fetch_google_api.output), task_insert_weather_bronze(task_fetch_weather_api.output)])
+        chain(task_create_schemas, task_create_google_tables, task_create_google_triggers,task_create_weather_tables, task_create_weather_triggers,[task_insert_google_bronze(task_fetch_google_api.output), task_insert_weather_bronze(task_fetch_weather_api.output)])
 
        
-    [task_fetch_google_api, task_fetch_weather_api] >> push_to_postgres
+    get_data >> push_to_postgres
     
 
 air_quality_etl()
