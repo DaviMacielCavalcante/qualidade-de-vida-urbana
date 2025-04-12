@@ -1,0 +1,6 @@
+{
+    "sonarlint.connectedMode.project": {
+        "connectionId": "cloud",
+        "projectKey": "DaviMacielCavalcante_qualidade-de-vida-urbana"
+    }
+}

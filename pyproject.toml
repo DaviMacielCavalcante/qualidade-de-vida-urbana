@@ -8,5 +8,6 @@ dependencies = [
     "apache-airflow-providers-postgres>=6.1.1",
     "ipykernel>=6.29.5",
     "psycopg2-binary>=2.9.10",
+    "pytest>=8.3.5",
     "requests>=2.32.3",
 ]
