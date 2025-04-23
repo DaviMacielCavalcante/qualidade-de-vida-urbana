@@ -7,8 +7,56 @@ BEGIN
     ) THEN
         CREATE OR REPLACE FUNCTION bronze.inserts_silver_weather()
         RETURNS TRIGGER AS $tg_func$
+        DECLARE
+            region_key TEXT;
+            
+            -- Caminhos base
+            CONST_DATA TEXT := 'data';
+            CONST_CONDITION TEXT := 'condition';
+            
+            CONST_LATITUDE TEXT := 'latitude';
+            CONST_LONGITUDE TEXT := 'longitude';
+            
+            -- Constantes para campos de dados meteorológicos
+            CONST_UV TEXT := 'uv';
+            CONST_CLOUD TEXT := 'cloud';
+            CONST_IS_DAY TEXT := 'is_day';
+            CONST_TEMP_C TEXT := 'temp_c';
+            CONST_TEMP_F TEXT := 'temp_f';
+            CONST_VIS_KM TEXT := 'vis_km';
+            CONST_GUST_KPH TEXT := 'gust_kph';
+            CONST_GUST_MPH TEXT := 'gust_mph';
+            CONST_HUMIDITY TEXT := 'humidity';
+            CONST_WIND_DIR TEXT := 'wind_dir';
+            CONST_WIND_KPH TEXT := 'wind_kph';
+            CONST_WIND_MPH TEXT := 'wind_mph';
+            CONST_CODE TEXT := 'code';
+            CONST_ICON TEXT := 'icon';
+            CONST_TEXT TEXT := 'text';
+            CONST_PRECIP_IN TEXT := 'precip_in';
+            CONST_PRECIP_MM TEXT := 'precip_mm';
+            CONST_VIS_MILES TEXT := 'vis_miles';
+            CONST_DEWPOINT_C TEXT := 'dewpoint_c';
+            CONST_DEWPOINT_F TEXT := 'dewpoint_f';
+            CONST_FEELSLIKE_C TEXT := 'feelslike_c';
+            CONST_FEELSLIKE_F TEXT := 'feelslike_f';
+            CONST_HEATINDEX_C TEXT := 'heatindex_c';
+            CONST_HEATINDEX_F TEXT := 'heatindex_f';
+            CONST_PRESSURE_IN TEXT := 'pressure_in';
+            CONST_PRESSURE_MB TEXT := 'pressure_mb';
+            CONST_WIND_DEGREE TEXT := 'wind_degree';
+            CONST_WINDCHILL_C TEXT := 'windchill_c';
+            CONST_WINDCHILL_F TEXT := 'windchill_f';
+            CONST_LAST_UPDATED TEXT := 'last_updated';
+            CONST_LAST_UPDATED_EPOCH TEXT := 'last_updated_epoch';
         BEGIN
+            -- Obtém a primeira chave (nome da região) do JSON
+            SELECT key INTO region_key
+            FROM jsonb_object_keys(NEW.data) AS key
+            LIMIT 1;
+            
             INSERT INTO silver.weather_api_data(
+                regiao,
                 uv,
                 cloud,
                 is_day,
@@ -41,54 +89,43 @@ BEGIN
                 last_updated,
                 last_updated_epoch,
                 location_lat,
-                location_lon,
-                location_name,
-                location_tz_id,
-                location_region,
-                location_country,
-                location_localtime,
-                location_localtime_epoch
+                location_lon
             ) 
             VALUES (
-                (NEW.data#>>'{current,uv}')::NUMERIC(5,2),
-                (NEW.data#>>'{current,cloud}')::NUMERIC::INTEGER,
-                (NEW.data#>>'{current,is_day}')::NUMERIC::INTEGER,
-                (NEW.data#>>'{current,temp_c}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,temp_f}')::NUMERIC(5,2),
-                (NEW.data#>>'{current,vis_km}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,gust_kph}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,gust_mph}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,humidity}')::NUMERIC::INTEGER,
-                NEW.data#>>'{current,wind_dir}',
-                (NEW.data#>>'{current,wind_kph}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,wind_mph}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,condition,code}')::NUMERIC::INTEGER,
-                NEW.data#>>'{current,condition,icon}',
-                NEW.data#>>'{current,condition,text}',
-                (NEW.data#>>'{current,precip_in}')::NUMERIC(6,4),
-                (NEW.data#>>'{current,precip_mm}')::NUMERIC(6,4),
-                (NEW.data#>>'{current,vis_miles}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,dewpoint_c}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,dewpoint_f}')::NUMERIC(5,2),
-                (NEW.data#>>'{current,feelslike_c}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,feelslike_f}')::NUMERIC(5,2),
-                (NEW.data#>>'{current,heatindex_c}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,heatindex_f}')::NUMERIC(5,2),
-                (NEW.data#>>'{current,pressure_in}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,pressure_mb}')::NUMERIC(6,2),
-                (NEW.data#>>'{current,wind_degree}')::NUMERIC::INTEGER,
-                (NEW.data#>>'{current,windchill_c}')::NUMERIC(4,2),
-                (NEW.data#>>'{current,windchill_f}')::NUMERIC(5,2),
-                (NEW.data#>>'{current,last_updated}')::TIMESTAMP,
-                (NEW.data#>>'{current,last_updated_epoch}')::NUMERIC::BIGINT,
-                (NEW.data#>>'{location,lat}')::NUMERIC(6,4),
-                (NEW.data#>>'{location,lon}')::NUMERIC(6,4),
-                NEW.data#>>'{location,name}',
-                NEW.data#>>'{location,tz_id}',
-                NEW.data#>>'{location,region}',
-                NEW.data#>>'{location,country}',
-                (NEW.data#>>'{location,localtime}')::TIMESTAMP,
-                (NEW.data#>>'{location,localtime_epoch}')::NUMERIC::BIGINT
+                region_key,
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_UV])::NUMERIC(5,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_CLOUD])::NUMERIC::INTEGER,
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_IS_DAY])::NUMERIC::INTEGER,
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_TEMP_C])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_TEMP_F])::NUMERIC(5,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_VIS_KM])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_GUST_KPH])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_GUST_MPH])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_HUMIDITY])::NUMERIC::INTEGER,
+                NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_WIND_DIR],
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_WIND_KPH])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_WIND_MPH])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_CONDITION, CONST_CODE])::NUMERIC::INTEGER,
+                NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_CONDITION, CONST_ICON],
+                NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_CONDITION, CONST_TEXT],
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_PRECIP_IN])::NUMERIC(6,4),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_PRECIP_MM])::NUMERIC(6,4),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_VIS_MILES])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_DEWPOINT_C])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_DEWPOINT_F])::NUMERIC(5,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_FEELSLIKE_C])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_FEELSLIKE_F])::NUMERIC(5,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_HEATINDEX_C])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_HEATINDEX_F])::NUMERIC(5,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_PRESSURE_IN])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_PRESSURE_MB])::NUMERIC(6,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_WIND_DEGREE])::NUMERIC::INTEGER,
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_WINDCHILL_C])::NUMERIC(4,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_WINDCHILL_F])::NUMERIC(5,2),
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_LAST_UPDATED])::TIMESTAMP,
+                (NEW.data #>> ARRAY[region_key, CONST_DATA, CONST_LAST_UPDATED_EPOCH])::NUMERIC::BIGINT,
+                (NEW.data #>> ARRAY[region_key, CONST_LATITUDE])::NUMERIC(6,4),
+                (NEW.data #>> ARRAY[region_key, CONST_LONGITUDE])::NUMERIC(6,4)
             );
 
             RETURN NEW;
