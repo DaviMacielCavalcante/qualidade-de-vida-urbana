@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS bronze.weather_api_data(
 
 CREATE TABLE IF NOT EXISTS silver.weather_api_data (
     id SERIAL PRIMARY KEY,
+    regiao VARCHAR(20),
     uv NUMERIC(5,2),
     cloud INTEGER,
     is_day INTEGER,
@@ -38,12 +39,6 @@ CREATE TABLE IF NOT EXISTS silver.weather_api_data (
     last_updated_epoch BIGINT,
     location_lat NUMERIC(6,4),
     location_lon NUMERIC(6,4),
-    location_name VARCHAR(50),
-    location_tz_id VARCHAR(50),
-    location_region VARCHAR(20),
-    location_country VARCHAR(10),
-    location_localtime TIMESTAMP,
-    location_localtime_epoch BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

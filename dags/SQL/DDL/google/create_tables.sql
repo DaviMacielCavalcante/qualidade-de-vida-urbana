@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS bronze.google_api_data(
 CREATE TABLE IF NOT EXISTS silver.google_api_data (
     id SERIAL PRIMARY KEY,
     data_medicao TIMESTAMP,
-    regiao VARCHAR(2),
-    
+    regiao VARCHAR(20),
+        
     aqi_universal INTEGER,
     codigo_universal VARCHAR(4),
     cor_vermelho_universal DECIMAL(9,8),
