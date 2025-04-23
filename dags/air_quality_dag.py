@@ -6,17 +6,9 @@ from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.decorators import dag,task
 from airflow.utils.task_group import TaskGroup
+from airflow.exceptions import AirflowBadRequest, AirflowFailException, AirflowNotFoundException
 import json
 import requests
-
-API_KEY = Variable.get('GOOGLE_AIR_QUALITY_API_KEY')
-weather = Variable.get('WEATHER_API_KEY')
-endpoint = f'currentConditions:lookup?key={API_KEY}'
-latitude = Variable.get('LATITUDE')
-longitude = Variable.get('LONGITUDE')
-headers = {
-    "Content-Type": "application/json"
-    }
 
 @dag(start_date=datetime(2025, 1, 6), schedule=timedelta(hours=8), catchup=False, description='ETL for Air Quality Data', tags=['air_quality'])
 def air_quality_etl():
@@ -36,7 +28,7 @@ def air_quality_etl():
         def fetch_weather(bairro_info):
             
             weather_key = Variable.get('WEATHER_API_KEY')
-            url = f"https://api.weatherapi.com/v1/current.json"
+            url = "https://api.weatherapi.com/v1/current.json"
             params = {
                 "key": weather_key,
                 "q": f"{bairro_info['latitude']},{bairro_info['longitude']}",
@@ -54,23 +46,36 @@ def air_quality_etl():
         @task
         def fetch_google(bairro_info):
 
-            url = f"https://airquality.googleapis.com/v1/currentConditions:lookup?key={API_KEY}"
-            body = {
-                "universalAqi": True,
-                "location": {
-                "latitude": bairro_info["latitude"],
-                "longitude": bairro_info["longitude"],
-                },
-                "extraComputations": [
-                    "DOMINANT_POLLUTANT_CONCENTRATION",
-                    "POLLUTANT_CONCENTRATION",
-                    "LOCAL_AQI"
-                ],
-                "languageCode": "pt-br"
-            }
+            try:
+                API_KEY = Variable.get('GOOGLE_AIR_QUALITY_API_KEY')
 
-            response = requests.post(url, headers=headers, json=body)
-            response.raise_for_status()
+                headers = {
+                "Content-Type": "application/json"
+                }
+                url = f"https://airquality.googleapis.com/v1/currentConditions:lookup?key={API_KEY}"
+                body = {
+                    "universalAqi": True,
+                    "location": {
+                    "latitude": bairro_info["latitude"],
+                    "longitude": bairro_info["longitude"],
+                    },
+                    "extraComputations": [
+                        "DOMINANT_POLLUTANT_CONCENTRATION",
+                        "POLLUTANT_CONCENTRATION",
+                        "LOCAL_AQI"
+                    ],
+                    "languageCode": "pt-br"
+                }
+
+                response = requests.post(url, headers=headers, json=body)
+                response.raise_for_status()
+            except Exception as e:
+                if isinstance(e, AirflowNotFoundException):
+                    raise AirflowNotFoundException(f"Erro ao obter variável de ambiente: {e}")
+                elif isinstance(e, AirflowBadRequest):
+                    raise AirflowBadRequest(f"Erro ao fazer a requisição para o bairro {bairro_info['bairro']} na API de Air Quality do Google: {e}")
+                else:
+                    raise AirflowFailException(f"Erro inesperado: {e}")
 
             return {
                 "bairro": bairro_info["nome"],
@@ -85,8 +90,6 @@ def air_quality_etl():
                 google_data = result["data"]
                 
                 processed_data[bairro] = {
-                    "latitude": google_data.get("location", {}).get("latitude"),
-                    "longitude": google_data.get("location", {}).get("longitude"),
                     "datetime": google_data.get("dateTime", {}),
                     "indexes": google_data.get("indexes", {}),
                     "pollutants": google_data.get("pollutants", {}),
