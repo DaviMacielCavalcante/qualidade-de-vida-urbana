@@ -7,10 +7,8 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.decorators import dag,task
 from airflow.utils.task_group import TaskGroup
 from airflow.exceptions import AirflowBadRequest, AirflowFailException, AirflowNotFoundException
-import json
-import requests
 
-@dag(start_date=datetime(2025, 1, 6), schedule=timedelta(hours=8), catchup=False, description='ETL for Air Quality Data', tags=['air_quality'])
+@dag(start_date=datetime(2025, 1, 6), schedule=timedelta(hours=1), catchup=False, description='ETL for Air Quality Data', tags=['air_quality'])
 def air_quality_etl():
 
     with TaskGroup(group_id="get_data") as get_data:
@@ -26,6 +24,7 @@ def air_quality_etl():
     
         @task
         def fetch_weather(bairro_info):
+            import requests
             
             weather_key = Variable.get('WEATHER_API_KEY')
             url = "https://api.weatherapi.com/v1/current.json"
@@ -45,6 +44,7 @@ def air_quality_etl():
         
         @task
         def fetch_google(bairro_info):
+            import requests
 
             try:
                 API_KEY = Variable.get('GOOGLE_AIR_QUALITY_API_KEY')
@@ -158,6 +158,7 @@ def air_quality_etl():
 
         @task
         def task_insert_google_bronze(json_data: dict):
+            import json
 
             for bairro, dados in json_data.items():
 
@@ -174,6 +175,7 @@ def air_quality_etl():
 
         @task
         def task_insert_weather_bronze(json_data: dict):
+            import json
 
             for bairro, dados in json_data.items():
 
