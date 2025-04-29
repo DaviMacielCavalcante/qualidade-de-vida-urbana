@@ -12,7 +12,7 @@ from airflow.exceptions import AirflowBadRequest, AirflowFailException, AirflowN
 def air_quality_etl():
 
     with TaskGroup(group_id="get_data") as get_data:
-
+        
         @task
         def get_bairros():
             bairros = Variable.get('DICIONARIO_BAIRRO', deserialize_json=True)
@@ -26,19 +26,21 @@ def air_quality_etl():
         def fetch_weather(bairro_info):
             import requests
             
-            weather_key = Variable.get('WEATHER_API_KEY')
-            url = "https://api.weatherapi.com/v1/current.json"
+            weather_key = Variable.get('WEATHER_PREDC_API_KEY')
+            url = "https://api.openweathermap.org/data/2.5/weather"
             params = {
-                "key": weather_key,
-                "q": f"{bairro_info['latitude']},{bairro_info['longitude']}",
-                "aqi": "no"
+                "lat": f"{bairro_info['latitude']}",
+                "lon": f"{bairro_info['longitude']}",
+                "appid": weather_key,
+                "units": "metric"
             }
             
             response = requests.get(url, params=params)
-            response.raise_for_status()
 
             return {
                 "bairro": bairro_info["nome"],
+                "latitude": bairro_info["latitude"],
+                "longitude": bairro_info["longitude"],
                 "data": response.json()
             }
         
@@ -102,15 +104,25 @@ def air_quality_etl():
             processed_data = {}
             for result in weather_results:
                 bairro = result["bairro"]
+                latitude = result["latitude"]
+                longitude = result["longitude"]
                 weather_data = result["data"]
-                
-                dados = weather_data.get("current", {})
-                
+
                 processed_data[bairro] = {
-                    "latitude": weather_data.get("location", {}).get("lat"),
-                    "longitude": weather_data.get("location", {}).get("lon"),
-                    "data": dados
-                }
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "data": {
+                        "temperatura": weather_data["main"]["temp"],
+                        "sensacao_termica": weather_data["main"]["feels_like"],
+                        "umidade": weather_data["main"]["humidity"],
+                        "pressao": weather_data["main"]["pressure"],
+                        "velocidade_vento": weather_data["wind"]["speed"],
+                        "direcao_vento": weather_data["wind"]["deg"],
+                        "descricao": weather_data["weather"][0]["description"],
+                        "nascer_sol": weather_data["sys"]["sunrise"],
+                        "por_sol": weather_data["sys"]["sunset"]
+                    }
+}
             
             return processed_data
         
