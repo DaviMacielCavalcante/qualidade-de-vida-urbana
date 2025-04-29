@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS silver.weather_api_data (
     wind_mph NUMERIC(4,2),
     condition_code INTEGER,
     condition_icon VARCHAR(250),
-    condition_text VARCHAR(20),
+    condition_text VARCHAR(100),
     precip_in NUMERIC(6,4),
     precip_mm NUMERIC(6,4),
     vis_miles NUMERIC(4,2),
