@@ -2,7 +2,7 @@
 
 ## Overview
 
-This code implements an ETL pipeline for the Weather Sync project, which gets Weather and Air quality data from multiple sources and loads it into s data lake.
+This code implements an ETL pipeline for the Weather Sync project, which gets Weather and Air quality data from multiple sources and loads it into a data lake.
 
 ## Key Objectives
 
