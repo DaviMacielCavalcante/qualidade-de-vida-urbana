@@ -12,3 +12,5 @@ airflow.db
 logs
 *.ipynb
 test-dumps/
+*.sh
+/postgres-data/
