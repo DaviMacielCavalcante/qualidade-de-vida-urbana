@@ -9,5 +9,5 @@ class SubscriptionTypeSchema(BaseModel):
     startDate: datetime = Field(...)
     endDate: datetime = Field(...)
     status: SubscriptionStatusEnum = Field(...)
-    createdAt: datetime 
-    updatedAt: datetime 
+    createdAt: datetime = Field(...)
+    updatedAt: datetime = Field(...)
