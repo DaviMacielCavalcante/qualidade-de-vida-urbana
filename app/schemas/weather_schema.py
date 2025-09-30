@@ -1,11 +1,11 @@
 from pydantic import BaseModel, Field
-
+from datetime import datetime
 class WeatherSchema(BaseModel):
     id: int
-    placeId: int = Field(..., gt=0)
-    sourceId: int = Field(..., gt=0)
+    place_id: int = Field(..., gt=0, alias="placeId")
+    source_id: int = Field(..., gt=0, alias="sourceId")
     temperature: float = Field(..., max_digits=5, decimal_places=2)
     humidity: float = Field(...)
-    windSpeed: float = Field(..., max_digits=4, decimal_places=2)
-    windDirection: int = Field(...)
-    createdAt: str = Field(...)
+    wind_speed: float = Field(..., max_digits=4, decimal_places=2, alias="windSpeed")
+    wind_direction: int = Field(..., alias="windDirection")
+    created_at: datetime = Field(..., alias="createdAt")

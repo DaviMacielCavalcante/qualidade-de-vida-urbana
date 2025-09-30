@@ -4,10 +4,10 @@ from enums import SubscriptionStatusEnum
 
 class SubscriptionTypeSchema(BaseModel):
     id: int
-    userId: str = Field(..., min_length=1)
-    placeId: int = Field(..., gt=0)
-    startDate: datetime = Field(...)
-    endDate: datetime = Field(...)
+    user_id: str = Field(..., min_length=1, alias="userId")
+    place_id: int = Field(..., gt=0, alias="placeId")
+    start_date: datetime = Field(..., alias="startDate")
+    end_date: datetime = Field(..., alias="endDate")
     status: SubscriptionStatusEnum = Field(...)
-    createdAt: datetime = Field(...)
-    updatedAt: datetime = Field(...)
+    created_at: datetime = Field(..., alias="createdAt")
+    updated_at: datetime = Field(..., alias="updatedAt") 

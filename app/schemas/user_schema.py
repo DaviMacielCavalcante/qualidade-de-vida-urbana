@@ -8,8 +8,8 @@ class UserSchema(BaseModel):
     email: EmailStr = Field(...)
     password: str = Field(..., min_length=8, max_length=255)
     signatureStatus: UserSignatureStatusEnum | None
-    phoneNumber: str = Field(..., min_length=11, max_length=20)
+    phone_number: str = Field(..., min_length=11, max_length=20, alias="phoneNumber")
     role: UserRoleEnum | None
     notifications: UserNotificationPreferenceEnum | None
-    createdAt: datetime = Field(...)
-    updatedAt: datetime | None
+    created_at: datetime = Field(..., alias="createdAt")
+    updated_at: datetime = Field(..., alias="updatedAt") | None
