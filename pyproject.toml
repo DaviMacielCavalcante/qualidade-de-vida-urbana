@@ -5,10 +5,13 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.15.1",
     "apache-airflow-providers-postgres>=6.1.1",
+    "audit-alembic>=0.2.0",
     "ipykernel>=6.29.5",
     "psycopg2-binary>=2.9.10",
     "pydantic>=2.11.9",
     "pytest>=8.3.5",
     "requests>=2.32.3",
+    "sqlalchemy>=1.4.54",
 ]
