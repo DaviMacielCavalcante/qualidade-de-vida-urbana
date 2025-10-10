@@ -1,8 +1,11 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from datetime import datetime
-from enums import UserNotificationPreferenceEnum, UserRoleEnum, UserSignatureStatusEnum
+from .enums import UserNotificationPreferenceEnum, UserRoleEnum, UserSignatureStatusEnum
 
 class UserSchema(BaseModel):
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
     id: str
     name: str = Field(..., min_length=1, max_length=100)
     email: EmailStr = Field(...)
@@ -15,7 +18,7 @@ class UserCreate(UserSchema):
 
 class UserRead(UserSchema):
     created_at: datetime = Field(..., alias="createdAt")
-    updated_at: datetime = Field(..., alias="updatedAt") | None
+    updated_at: datetime | None = Field(..., alias="updatedAt") 
 
     class Config: 
         orm_mode = True

@@ -15,6 +15,7 @@ class CreateUserUseCase:
        if is_email_already_used:
         raise ValueError("User with this email already exists")
        
+       return self.repository.create_user(db, user_create)
 
 CreateUserUseCase = CreateUserUseCase()
        

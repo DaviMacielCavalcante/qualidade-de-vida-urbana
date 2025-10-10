@@ -4,7 +4,7 @@ from typing import List
 from app.models.user_model import User
 from app.schemas.user_schema import UserCreate, UserUpdate
 
-pwd_context = CryptContext(schemes=["bcrypt"])
+pwd_context = CryptContext(schemes=["argon2"])
 
 def get_pwd_hash(pwd: str) -> str:
     return pwd_context.hash(pwd)
