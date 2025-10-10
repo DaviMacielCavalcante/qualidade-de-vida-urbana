@@ -7,13 +7,15 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.15.1",
     "apache-airflow-providers-postgres>=6.1.1",
+    "argon2-cffi>=25.1.0",
     "audit-alembic>=0.2.0",
     "fastapi>=0.118.3",
     "ipykernel>=6.29.5",
-    "passlib[bcrypt]>=1.7.4",
+    "passlib[argon-2,bcrypt]>=1.7.4",
     "psycopg2-binary>=2.9.10",
     "pydantic>=2.11.9",
     "pytest>=8.3.5",
     "requests>=2.32.3",
     "sqlalchemy>=1.4.54",
+    "uvicorn>=0.37.0",
 ]
