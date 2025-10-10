@@ -8,6 +8,7 @@ dependencies = [
     "alembic>=1.15.1",
     "apache-airflow-providers-postgres>=6.1.1",
     "audit-alembic>=0.2.0",
+    "fastapi>=0.118.3",
     "ipykernel>=6.29.5",
     "passlib[bcrypt]>=1.7.4",
     "psycopg2-binary>=2.9.10",
