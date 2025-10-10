@@ -11,9 +11,11 @@ class User(Base):
     name = Column(String(100), index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     password = Column(String(255), nullable=False)
-    signatureStatus = Column(Enum(UserSignatureStatusEnum), nullable=True)
+    signatureStatus = Column(Enum(UserSignatureStatusEnum, name="usersignaturestatusenum", schema="dev"), nullable=True)
     phone_number = Column(String(20), nullable=False)
-    role = Column(Enum(UserRoleEnum), nullable=True)
-    notifications = Column(Enum(UserNotificationPreferenceEnum), nullable=True)
+    role = Column(Enum(UserRoleEnum, name="userroleenum", schema="dev"), nullable=True)
+    notifications = Column(Enum(UserNotificationPreferenceEnum, name="usernotificationpreferenceenum", schema="dev"), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, onupdate=func.now(), nullable=True)
+
+    __table_args__ = {'schema': 'dev'}   
