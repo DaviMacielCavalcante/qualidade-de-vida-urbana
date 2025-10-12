@@ -58,8 +58,10 @@ class UserRepository:
         db.refresh(user_obj)
         return user_obj
     
-    def delete_user(self, db: Session, user_id: str) -> User | None:
-        user_db = self.get_user_by_id(db, user_id)
+    def delete_user(self, db: Session, email: str) -> User | None:
+
+        user_db = self.get_user_by_email(db, email)
+
         if not user_db:
             return None
         
