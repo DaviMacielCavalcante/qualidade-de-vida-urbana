@@ -9,6 +9,7 @@ dependencies = [
     "apache-airflow-providers-postgres>=6.1.1",
     "argon2-cffi>=25.1.0",
     "audit-alembic>=0.2.0",
+    "faker>=37.11.0",
     "fastapi>=0.118.3",
     "ipykernel>=6.29.5",
     "passlib[argon-2,bcrypt]>=1.7.4",

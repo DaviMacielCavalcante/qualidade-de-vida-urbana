@@ -947,6 +947,18 @@ wheels = [
 ]
 
 [[package]]
+name = "faker"
+version = "37.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tzdata" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c9/4b/ca43f6bbcef63deb8ac01201af306388670a172587169aab3b192f7490f0/faker-37.11.0.tar.gz", hash = "sha256:22969803849ba0618be8eee2dd01d0d9e2cd3b75e6ff1a291fa9abcdb34da5e6", size = 1935301 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a3/46/8f4097b55e43af39e8e71e1f7aec59ff7398bca54d975c30889bc844719d/faker-37.11.0-py3-none-any.whl", hash = "sha256:1508d2da94dfd1e0087b36f386126d84f8583b3de19ac18e392a2831a6676c57", size = 1975525 },
+]
+
+[[package]]
 name = "fastapi"
 version = "0.118.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2387,6 +2399,7 @@ dependencies = [
     { name = "apache-airflow-providers-postgres" },
     { name = "argon2-cffi" },
     { name = "audit-alembic" },
+    { name = "faker" },
     { name = "fastapi" },
     { name = "ipykernel" },
     { name = "passlib", extra = ["bcrypt"] },
@@ -2404,6 +2417,7 @@ requires-dist = [
     { name = "apache-airflow-providers-postgres", specifier = ">=6.1.1" },
     { name = "argon2-cffi", specifier = ">=25.1.0" },
     { name = "audit-alembic", specifier = ">=0.2.0" },
+    { name = "faker", specifier = ">=37.11.0" },
     { name = "fastapi", specifier = ">=0.118.3" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "passlib", extras = ["argon-2", "bcrypt"], specifier = ">=1.7.4" },
