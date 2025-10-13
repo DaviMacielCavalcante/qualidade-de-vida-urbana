@@ -16,14 +16,25 @@ class UserSchema(BaseModel):
 class UserCreate(UserSchema):
     password: str = Field(..., min_length=8, max_length=255)
 
-class UserRead(UserSchema):
+class UserRead(BaseModel):
+    
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+    
+    name: str
+    email: EmailStr
+    signatureStatus: UserSignatureStatusEnum | None = None
+    phone_number: str = Field(..., alias="phoneNumber")
+    role: UserRoleEnum | None = None
+    notifications: UserNotificationPreferenceEnum | None = None
     created_at: datetime = Field(..., alias="createdAt")
-    updated_at: datetime | None = Field(..., alias="updatedAt") 
+    updated_at: datetime | None = Field(None, alias="updatedAt")
 
-    class Config: 
-        orm_mode = True
 
-class UserUpdate(UserSchema):
+class UserUpdate(BaseModel):
+
+    model_config = ConfigDict(populate_by_name=True)
+    
+
     name: str | None = None
     email: EmailStr | None = None
     phone_number: str | None = Field(None, min_length=11, max_length=20, alias="phoneNumber")

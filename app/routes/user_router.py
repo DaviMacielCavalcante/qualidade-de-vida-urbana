@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.schemas.user_schema import UserCreate, UserRead
-from app.use_cases.user_use_case import CreateUserUseCase, GetUserByEmailUseCase, GetAllUsersUseCase, DeleteUserByEmailUseCase
+from app.schemas.user_schema import UserCreate, UserRead, UserUpdate
+from app.use_cases.user_use_case import CreateUserUseCase, GetUserByEmailUseCase, GetAllUsersUseCase, UpdateUserUseCase,DeleteUserByEmailUseCase
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -58,7 +58,41 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
     
 
-#@route.put()
+@router.put("/update", response_model= UserRead, status_code=200, responses={
+    200: {"description": "User updated"},
+    404: {
+        "description": "User not found",
+        "content": {
+            "application/json": {
+                "example": {"detail": "User with email john@example.com not found"}
+            }
+        }
+    },
+    409: {
+        "description": "Email already exists in the database",
+        "content": {
+                "application/json": {
+                    "example": {"detail": "Email jane@example.com already in use by another user"}
+                }
+        }
+    },
+    422: {"description": "Invalid data or no fields to update"}
+})
+def update_user(
+    email: str=Query(..., description="The email of the user to update"),
+    user: UserUpdate = ...,
+    db: Session=Depends(get_db)
+):
+    try:
+        return UpdateUserUseCase.execute(db, email, user)
+    except ValueError as e:
+        if "not found" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        if "already used" in str(e):
+            raise HTTPException(status_code=409, detail=str(e))
+        if "no fields" in str(e):
+            raise HTTPException(status_code=422, detail=str(e))
+
     
 @router.delete("/delete", response_model=UserRead, status_code=200, responses={
     200: {"description": "User deleted"},

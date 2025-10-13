@@ -16,7 +16,7 @@ def generate_fake_users(n: int = 50) -> list[User]:
     
     users = []
     
-    for i in range(n):
+    for _ in range(n):
         
         user = User(
             id=fake.uuid4(),  
