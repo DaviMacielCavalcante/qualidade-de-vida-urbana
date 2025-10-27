@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.user_schema import UserCreate, UserRead, UserUpdate
 from app.use_cases.user_use_case import CreateUserUseCase, GetUserByEmailUseCase, GetAllUsersUseCase, UpdateUserUseCase,DeleteUserByEmailUseCase
+from ..auth.dependencies import get_current_user
+from ..models.user_model import User
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -30,9 +32,12 @@ def get_user_by_email(
 
 @router.get("/all", response_model=list[UserRead], status_code=200, responses={
     200: {"description": "List of users retrieved successfully"},
-    400 : {"description": "Invalid parameters"}
+    400 : {"description": "Invalid parameters"},
+    401: {"description": "Not authenticated!"}
 })
-def get_all_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 100):
+def get_all_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 100, current_user: User = Depends(get_current_user)):
+
+    
     try:
         return GetAllUsersUseCase.execute(db, skip, limit)
     except ValueError as e:
