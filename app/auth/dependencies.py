@@ -1,6 +1,5 @@
 from sqlalchemy.orm import Session
-from fastapi import status, Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import status, Depends, Cookie
 from fastapi.exceptions import HTTPException
 from jose import JWTError
 from .jwt_handler import verify_token
@@ -8,20 +7,23 @@ from ..repositories.user_repository import user_repository
 from ..models.user_model import User
 from ..database import get_db
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
 def get_current_user(
-        token: str = Depends(oauth2_scheme),
+        access_token: str = Cookie(None),
         db: Session = Depends(get_db)
 ) -> User:
 
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
     try:
-        payload = verify_token(token)
+        payload = verify_token(access_token)
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"}
+            detail="Could not validate credentials"
         )
     
     user_id = payload.get("sub")
@@ -29,8 +31,7 @@ def get_current_user(
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"}
+            detail="Could not validate credentials"
         )
     
     user = user_repository.get_user_by_id(db=db, user_id=user_id)
@@ -38,8 +39,7 @@ def get_current_user(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"}
+            detail="Could not validate credentials"
         )
     
     return user
