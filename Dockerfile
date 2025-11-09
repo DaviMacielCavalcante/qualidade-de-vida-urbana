@@ -1,4 +1,4 @@
-FROM apache/airflow:3.0.2 AS projeto_pi
+FROM apache/airflow:3.1.1
 RUN pip install uv 
-COPY requirements.txt .
-RUN uv pip install apache-airflow==${AIRFLOW_VERSION} -r requirements.txt
+COPY pyproject.toml .
+RUN uv sync
