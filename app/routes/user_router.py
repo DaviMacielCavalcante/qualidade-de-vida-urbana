@@ -1,15 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.user_schema import UserCreate, UserRead, UserUpdate
 from app.use_cases.user_use_case import CreateUserUseCase, GetUserByEmailUseCase, GetAllUsersUseCase, UpdateUserUseCase,DeleteUserByEmailUseCase
-from ..auth.dependencies import get_current_user
+from ..auth.dependencies import get_current_user, require_admin, validate_user_or_admin
 from ..models.user_model import User
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/email", response_model=UserRead, status_code=200, responses={
     200: {"description": "User found"},
+    401: {"description": "Not authenticated!"},
     404: {
         "description": "User not found",
         "content": {
@@ -22,7 +23,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 })
 def get_user_by_email(
     email: str = Query(..., description="The email of the user to retrieve"), 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
     ):
     try:
         return GetUserByEmailUseCase.execute(db, email)
@@ -35,7 +37,7 @@ def get_user_by_email(
     400 : {"description": "Invalid parameters"},
     401: {"description": "Not authenticated!"}
 })
-def get_all_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 100, current_user: User = Depends(get_current_user)):
+def get_all_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 100, current_user: User = Depends(require_admin)):
 
     
     try:
@@ -65,6 +67,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.put("/update", response_model= UserRead, status_code=200, responses={
     200: {"description": "User updated"},
+    403: {"description": "Operation denied"},
     404: {
         "description": "User not found",
         "content": {
@@ -86,8 +89,12 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 def update_user(
     email: str=Query(..., description="The email of the user to update"),
     user: UserUpdate = ...,
-    db: Session=Depends(get_db)
+    db: Session=Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    
+    validate_user_or_admin(email=email, current_user=current_user)
+
     try:
         return UpdateUserUseCase.execute(db, email, user)
     except ValueError as e:
@@ -101,6 +108,7 @@ def update_user(
     
 @router.delete("/delete", response_model=UserRead, status_code=200, responses={
     200: {"description": "User deleted"},
+    403: {"description": "Operation denied"},
     404: {
         "description": "User not found",
         "content": {
@@ -113,9 +121,35 @@ def update_user(
 })
 def deleter_user(
     email: str=Query(..., description="The email of the user to retrieve"), 
-    db: Session=Depends(get_db)
+    db: Session=Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    
     try:
-        return DeleteUserByEmailUseCase.execute(db, email)
-    except ValueError as e: 
-        raise HTTPException(status_code=404, detail=str(e))
+        target_user = GetUserByEmailUseCase.execute(db, email)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    
+    if current_user.role == "admin" and current_user.email == email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operation denied"
+        )
+    
+    if current_user.role == "admin" and target_user.role == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operation denied"
+        )
+    
+    if current_user.role != "admin" and current_user.email != email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operation denied"
+        )
+    
+    return DeleteUserByEmailUseCase.execute(db, email)
+    
