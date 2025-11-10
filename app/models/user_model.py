@@ -6,6 +6,8 @@ import uuid
 
 class User(Base):
     __tablename__ = 'users'
+
+    __table_args__ = {'schema': 'dev'}  
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(100), index=True, nullable=False)
@@ -17,5 +19,3 @@ class User(Base):
     notifications = Column(Enum(UserNotificationPreferenceEnum, name="usernotificationpreferenceenum", schema="dev"), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, onupdate=func.now(), nullable=True)
-
-    __table_args__ = {'schema': 'dev'}   
