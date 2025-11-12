@@ -77,5 +77,41 @@ def test_user_fixture_creates_admin(test_admin, test_db):
     assert found is not None
     assert found.id is not None
 
+def test_authenticated_client_is_logged(authenticated_client):
+    """
+    Valida que authenticated_client está logado.
+    """
+
+    response = authenticated_client.get("/auth/me")
+
+    assert response.status_code == 200
+    assert response.json()["email"] == "teste@teste.com"
+    assert response.json()["role"] == "user"
+
+def test_authenticated_admin_is_logged(authenticated_admin):
+    """
+    Valida que authenticated_admin está logado.
+    """
+
+    response = authenticated_admin.get("/auth/me")
+
+    assert response.status_code == 200
+    assert response.json()["email"] == "admin@admin.com"
+    assert response.json()["role"] == "admin"    
+
+def test_admin_can_access_protected_route(authenticated_admin):
+    """
+    Valida que admin consegue acessar rotas protegidas.
+    """
+    response = authenticated_admin.get("/users/all")
+    
+    assert response.status_code == 200
 
 
+def test_user_cannot_access_admin_route(authenticated_client):
+    """
+    Valida que user comum NÃO consegue acessar rotas de admin.
+    """
+    response = authenticated_client.get("/users/all")
+
+    assert response.status_code == 403

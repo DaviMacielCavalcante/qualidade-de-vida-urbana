@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from .models.test_user import TestBase, User
+from .models.test_user import TestBase
 
 
 @pytest.fixture(scope="function")
@@ -17,7 +17,8 @@ def test_db():
     Cada teste começa com banco limpo (scope="function").
     """
 
-    engine = create_engine("sqlite:///:memory:")
+    # desabilitando restrição de compartilhamento de conexões
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     
     TestBase.metadata.create_all(bind=engine)
     
@@ -35,25 +36,37 @@ def client(test_db):
     """
     TestClient que usa banco de teste.
     
-    Sobrescreve get_db para usar test_db (SQLite) 
-    ao invés do banco de produção (PostgreSQL).
+    Sobrescreve get_db E faz patch do User model
+    em TODOS os lugares que ele é importado.
     """
-
     from fastapi.testclient import TestClient
     from main import app
     from app.database import get_db
+    from unittest.mock import patch
+    from tests.models.test_user import User as TestUser
 
-    def overrirde_get_db():
-        try:
+
+
+    def override_get_db():
             yield test_db
-        finally:
-            pass
 
-    app.dependency_overrides[get_db] = overrirde_get_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    patches = [
+        patch('app.models.user_model.User', TestUser),
+        patch('app.repositories.user_repository.User', TestUser)
+    ]
+
+    for p in patches:
+        p.start()
 
     test_client = TestClient(app)
 
     yield test_client
+
+    for p in patches:
+        p.stop()
 
     app.dependency_overrides.clear()
 
@@ -153,13 +166,42 @@ def test_admin(test_db):
         "role": user_data["role"]         
     }
 
+@pytest.fixture
+def authenticated_client(client, test_user):
+    """
+    Client autenticado como usuário comum.
+    
+    Faz login automaticamente com test_user.
+    Cookie é setado e persiste nas próximas requisições.
+    """
 
+    response = client.post("/auth/login", data={
+        "username": test_user["email"],
+        "password": test_user["password"],
+        "grant_type": "password"
+    })
 
+    assert response.status_code == 200
+    assert "access_token" in response.cookies
 
+    return client
 
-# Próximas fixtures virão aqui:
-# - client (TestClient)
-# - test_user (usuário já criado no banco)
-# - test_admin (admin já criado no banco)
-# - authenticated_client (client logado)
-# etc.
+@pytest.fixture
+def authenticated_admin(client, test_admin):
+    """
+    Client já autenticado como admin.
+    
+    Faz login automaticamente com test_admin.
+    """
+
+    response = client.post("/auth/login", data={
+        "username": test_admin["email"],
+        "password": test_admin["password"],
+        "grant_type": "password"
+    })
+
+    assert response.status_code == 200
+    assert "access_token" in response.cookies
+
+    return client
+
