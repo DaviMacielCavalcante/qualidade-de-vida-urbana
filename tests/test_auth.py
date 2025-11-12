@@ -115,3 +115,124 @@ def test_user_cannot_access_admin_route(authenticated_client):
     response = authenticated_client.get("/users/all")
 
     assert response.status_code == 403
+
+def test_login_success(client, test_user):
+    """
+    Cenário: Usuário faz login com credenciais válidas
+    
+    Dado: Um usuário existe no banco
+    Quando: Faz POST /auth/login com email e senha corretos
+    Então: 
+        - Status 200
+        - Cookie access_token é setado
+        - Resposta contém mensagem de sucesso
+    """
+    
+    response = client.post("/auth/login", data={
+        "username": test_user["email"],  
+        "password": test_user["password"],  
+        "grant_type": "password"
+    })
+    
+    assert response.status_code == 200
+    assert "access_token" in response.cookies  
+    assert response.json() == {"message": "Login successful"}
+
+def test_login_invalid_email(client, test_user):
+    """
+    Cenário: Tentar login com email que não existe
+    
+    Dado: Email não está cadastrado
+    Quando: Faz POST /auth/login
+    Então:
+        - Status 401
+        - Sem cookie
+        - Mensagem de erro
+    """
+    
+    response = client.post("/auth/login", data={
+        "username": "nao_existo@naoexisto.com",  # Email que NÃO existe
+        "password": "qualquer_senha",
+        "grant_type": "password"
+    })
+    
+    assert response.status_code == 401
+    assert "access_token" not in response.cookies
+
+def test_login_wrong_password(client, test_user):
+    """
+    Cenário: Tentar login com senha incorreta
+    
+    Dado: Usuário existe no banco
+    Quando: Faz POST /auth/login com senha errada
+    Então:
+        - Status 422
+        - Sem cookie
+        - Mensagem de erro
+    """
+    
+    response = client.post("/auth/login", data={
+        "username": test_user["email"],  
+        "password": ".", 
+        "grant_type": "password"
+    })
+    
+    assert response.status_code == 401
+    assert "access_token" not in response.cookies
+
+def test_register_duplicate_email(client, test_user):
+    """
+    Tentar registrar com email já usado deve retornar 400.
+    """
+    duplicate_data = {
+        "id": "999",
+        "email": test_user["email"],  
+        "password": "outra_senha",
+        "name": "Outro Nome",
+        "phone_number": "11888888888",
+        "role": "user",
+        "signatureStatus": "active",
+        "notifications": "yes"
+    }
+    
+    response = client.post("/auth/register", json=duplicate_data)
+    
+    assert response.status_code == 400  
+    assert "access_token" not in response.cookies
+
+def test_me_not_authenticated(client, test_user):
+    """
+    Cenário: Acessar /auth/me sem estar logado
+    
+    Dado: Não fez login (sem cookie)
+    Quando: GET /auth/me
+    Então:
+        - Status 401 (Unauthorized)
+        - Mensagem de erro
+    """
+
+    response = client.get("/auth/me")
+    
+    assert response.status_code == 401
+
+def test_logout(authenticated_client):
+    """
+    Cenário: Fazer logout
+    
+    Dado: Usuário está logado (authenticated_client já tem cookie)
+    Quando: POST /auth/logout
+    Então:
+        - Status 200
+        - Cookie é removido ou invalidado
+        - Não consegue mais acessar rotas protegidas
+    """
+
+    me_before = authenticated_client.get("/auth/me")
+    assert me_before.status_code == 200  # Estava logado
+
+    response = authenticated_client.post("/auth/logout")
+    
+    assert response.status_code == 200
+
+    me_after = authenticated_client.get("/auth/me")
+    assert me_after.status_code == 401  # Não está mais logado
