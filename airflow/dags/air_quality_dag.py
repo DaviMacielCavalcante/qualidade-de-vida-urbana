@@ -1,0 +1,240 @@
+from datetime import datetime, timedelta
+from airflow.sdk import dag, task, TaskGroup
+from airflow.models import Variable
+
+@dag(start_date=datetime(2025, 1, 6), schedule=timedelta(hours=1), catchup=False, description='ETL for Air Quality Data', tags=['air_quality'])
+def air_quality_etl():
+
+    with TaskGroup(group_id="get_data") as get_data:
+        
+        @task 
+        def get_last_hour_inmet():
+            from selenium import webdriver
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as ec
+            from selenium.webdriver.chrome.service import Service 
+            from selenium.webdriver.chrome.options import Options
+            from webdriver_manager.chrome import ChromeDriverManager
+            from datetime import datetime
+            from io import BytesIO
+            import time 
+            import pyarrow as pa 
+            import pyarrow.parquet as pq
+            import boto3
+            
+            chrome_options = Options()
+            chrome_options.add_argument("--headless")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            
+            driver = webdriver.Chrome(
+                service=Service(ChromeDriverManager().install()),
+                options=chrome_options
+            )
+            driver.get("https://tempo.inmet.gov.br/TabelaEstacoes/")
+
+            menu_icon = WebDriverWait(driver, 10).until(
+                ec.element_to_be_clickable((By.CLASS_NAME, "bars"))
+            )
+
+            menu_icon.click()
+
+            time.sleep(2)
+
+
+            botao_estacao_automatica = WebDriverWait(driver, 10).until(
+                ec.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Automáticas')]"))
+            )
+
+            botao_estacao_automatica.click()
+
+            time.sleep(1)
+
+            dropdowns = driver.find_elements(By.CSS_SELECTOR, "div.ui.search.selection.dropdown")
+
+            dropdown_estado = dropdowns[1]  
+            dropdown_estado.click()
+                
+            opcao_para = WebDriverWait(driver, 10).until(
+                ec.element_to_be_clickable((By.XPATH, "//span[text()='Pará']"))
+            )
+
+            opcao_para.click()
+            time.sleep(2)
+
+            dropdowns_atualizados = driver.find_elements(By.CSS_SELECTOR, "div.ui.search.selection.dropdown")
+
+            dropdown_estacao = dropdowns_atualizados[2] 
+            dropdown_estacao.click()
+
+
+            opcoes_estacao = driver.find_elements(By.XPATH, "//div[@role='option']//span[@class='text']")
+
+            opcao_castanhal = WebDriverWait(driver, 10).until(
+                ec.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'CASTANHAL') and contains(text(), 'A202')]"))
+            )
+
+            opcao_castanhal.click()
+
+            campos_data = driver.find_elements(By.CSS_SELECTOR, "input[type='date']")
+
+            campo_data_inicio = campos_data[0]
+            campo_data_inicio.click()
+
+            data_hoje = datetime.now().strftime("%Y-%m-%d")
+
+            driver.execute_script("arguments[0].value = arguments[1];", campo_data_inicio, data_hoje)
+
+
+            campo_data_fim = campos_data[1]
+            campo_data_fim.click()
+
+            driver.execute_script("arguments[0].value = arguments[1];", campo_data_fim, data_hoje)
+
+            btn_gerar_tabela = driver.find_element(By.XPATH, "//button[contains(text(), 'Gerar Tabela')]")
+
+            btn_gerar_tabela.click()
+
+            time.sleep(2)
+
+            tabela = WebDriverWait(driver, 10).until(
+                ec.presence_of_element_located((By.TAG_NAME, "table"))
+            )
+
+            # Dentro do <thead>, tem 2 <tr>
+            thead = tabela.find_element(By.TAG_NAME, "thead")
+            linhas_header = thead.find_elements(By.TAG_NAME, "tr")
+
+            # Primeira linha de headers
+            linha1 = linhas_header[0]
+            ths_linha1 = linha1.find_elements(By.TAG_NAME, "th")
+
+            # Segunda linha de headers
+            linha2 = linhas_header[1]
+            ths_linha2 = linha2.find_elements(By.TAG_NAME, "th")
+
+            mapeamento_headers = {
+                "Temperatura (°C)": "temp_c",
+                "Umidade (%)": "umid_perc",
+                "Pto. Orvalho (°C)": "pto_orvalho_c",  
+                "Pressão (hPa)": "press_hpa",
+                "Vento": "vento",
+                "Radiação": "rad",  
+                "Chuva": "chuva",
+                "Data": "data",
+                "Hora": "hora"
+            }
+
+            mapeamento_headers2 = {
+                "Inst.": "inst",
+                "Máx.": "max",   
+                "Mín.": "min",   
+                "Vel. (m/s)": "vel_ms",  
+                "Dir. (°)": "dir",   
+                "Raj. (m/s)": "raj",  
+                "Kj/m²": "kjm2",       
+                "mm": "mm",       
+                "UTC": "utc"  
+            }
+
+            headers_combinados = []
+            index_linha2 = 0 
+
+            for th_linha1 in ths_linha1:
+                nome_grupo = th_linha1.text
+                colspan = th_linha1.get_attribute('colspan')
+                nome_grupo = mapeamento_headers.get(nome_grupo, nome_grupo)
+                
+                # Se colspan é None, tratar como 1
+                if colspan is None:
+                    colspan = 1
+                else:
+                    colspan = int(colspan)
+                
+                # Pegar N headers da linha 2 (onde N = colspan)
+                for i in range(colspan):
+                    nome_detalhe = ths_linha2[index_linha2].text 
+                    
+                    nome_detalhe = mapeamento_headers2.get(nome_detalhe, nome_detalhe) 
+                    
+                    if nome_detalhe.strip() == "":
+                        nome_final = nome_grupo
+                    else:
+                        nome_final = nome_grupo + "_" + nome_detalhe
+                    
+                    headers_combinados.append(nome_final)
+                    index_linha2 += 1
+
+            tbody = tabela.find_element(By.TAG_NAME, "tbody")
+            linhas = tbody.find_elements(By.TAG_NAME, "tr")
+
+            hora_atual = datetime.now().strftime("%H00")
+
+            for linha in linhas:
+                celulas = linha.find_elements(By.TAG_NAME, "td")
+                hora = celulas[1].text
+                if hora_atual == hora:
+                    valores = [celula.text for celula in celulas]
+                    print(valores)
+                    
+            dados_sem_metadados = dict(zip(headers_combinados, valores))
+            
+            inmet_campos_schema = [(header, pa.string()) for header in headers_combinados]
+            schema = pa.schema(inmet_campos_schema)
+            schema
+            
+            dados_sem_metadados_colunar = {k: [v] for k,v in dados_sem_metadados.items()}
+            table = pa.Table.from_pydict(dados_sem_metadados_colunar, schema=schema)
+    
+            metadata = {
+                b'layer': b'bronze',
+                b'destiny': b'silver',
+                b'fonte_nome': b'INMET',
+                b'fonte_estacao': b'CASTANHAL',
+                b'fonte_codigo': b'A202',
+                b'fonte_datetime_insert': datetime.now().isoformat().encode()
+            }
+
+            table = table.replace_schema_metadata(metadata)
+            
+            agora = datetime.now()
+            path_parquet_s3 = (
+                f"{metadata[b'fonte_nome'].decode().lower()}/{metadata[b'fonte_estacao'].decode().lower()}/"
+                f"year={agora.year}/month={agora.month:02d}/day={agora.day:02d}/"
+                f"{metadata[b'fonte_estacao'].decode().lower()}-{agora.isoformat()}.parquet"
+            )
+            path_parquet_s3
+            
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id = Variable.get("AWS_S3_KEY_ID"),
+                aws_secret_access_key = Variable.get("AWS_S3_SECRET"),
+                region_name = Variable.get("AWS_REGION")
+            )
+
+            bucket_name = Variable.get("AWS_S3_BUCKET_BRONZE")
+            
+            buffer = BytesIO()
+
+            pq.write_table(
+                table,
+                buffer,
+                compression="snappy"
+            )
+
+            buffer.seek(0)
+
+            s3_client.put_object(
+                Body=buffer.getvalue(),
+                Bucket=bucket_name,
+                Key=path_parquet_s3    
+            )
+            
+            return True
+            
+        inmet = get_last_hour_inmet()
+        
+        get_data
+
+air_quality_etl()
