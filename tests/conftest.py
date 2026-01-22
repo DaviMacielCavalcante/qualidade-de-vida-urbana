@@ -40,7 +40,7 @@ def client(test_db):
     em TODOS os lugares que ele é importado.
     """
     from fastapi.testclient import TestClient
-    from main import app
+    from fastapi.main import app
     from app.database import get_db
     from unittest.mock import patch
     from tests.models.test_user import User as TestUser

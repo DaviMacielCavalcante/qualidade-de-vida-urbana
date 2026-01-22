@@ -5,11 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "apache-airflow[operators]==3.1.1",
     "boto3>=1.42.31",
     "dotenv>=0.9.9",
     "ipykernel>=6.29.5",
-    "python-jose[cryptography]>=3.5.0",
+    "pyarrow>=23.0.0",
     "selenium>=4.40.0",
     "webdriver-manager>=4.0.2",
 ]

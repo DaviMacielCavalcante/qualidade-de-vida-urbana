@@ -1,0 +1,26 @@
+[project]
+name = "qualidade-de-vida-urbana"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.15.1",
+    "argon2-cffi>=25.1.0",
+    "audit-alembic>=0.2.0",
+    "dotenv>=0.9.9",
+    "faker>=37.11.0",
+    "fastapi[standard]>=0.118.3",
+    "httpx>=0.28.1",
+    "ipykernel>=6.29.5",
+    "passlib[argon-2,bcrypt]>=1.7.4",
+    "psycopg2-binary>=2.9.10",
+    "pydantic>=2.11.9",
+    "pytest>=8.3.5",
+    "pytest-asyncio>=1.2.0",
+    "python-jose[cryptography]>=3.5.0",
+    "python-multipart>=0.0.20",
+    "requests>=2.32.3",
+    "sqlalchemy>=1.4.54",
+    "uvicorn>=0.37.0",
+]
