@@ -668,7 +668,7 @@ wheels = [
 ]
 
 [[package]]
-name = "qualidade-de-vida-urbana"
+name = "qualidade-de-vida-urbana-airflow"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
