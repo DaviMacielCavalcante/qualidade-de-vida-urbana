@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "."
+		},
+		{
+			"path": "../fastapi"
+		},
+		{
+			"path": "airflow"
+		}
+	],
+	"settings": {}
+}

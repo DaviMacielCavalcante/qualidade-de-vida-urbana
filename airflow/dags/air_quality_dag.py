@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from airflow.sdk import dag, task, TaskGroup
-from airflow.models import Variable
+from aws.secrets import get_parameter
 
 @dag(start_date=datetime(2025, 1, 6), schedule=timedelta(hours=1), catchup=False, description='ETL for Air Quality Data', tags=['air_quality'])
 def air_quality_etl():
@@ -208,12 +208,12 @@ def air_quality_etl():
             
             s3_client = boto3.client(
                 's3',
-                aws_access_key_id = Variable.get("AWS_S3_KEY_ID"),
-                aws_secret_access_key = Variable.get("AWS_S3_SECRET"),
-                region_name = Variable.get("AWS_REGION")
+                aws_access_key_id = get_parameter("/tcc/dev/airflow_aws_s3_key_id"),
+                aws_secret_access_key = get_parameter("/tcc/dev/airflow_s3_secret"),
+                region_name = get_parameter("/tcc/dev/aws_region")
             )
 
-            bucket_name = Variable.get("AWS_S3_BUCKET_BRONZE")
+            bucket_name = get_parameter("/tcc/dev/aws_s3_bucket_bronze")
             
             buffer = BytesIO()
 
