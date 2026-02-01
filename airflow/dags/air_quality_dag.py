@@ -232,9 +232,96 @@ def air_quality_etl():
             )
             
             return True
-            
-        inmet = get_last_hour_inmet()
         
+        @task 
+        def get_historical_inmet():
+            import zipfile
+            import requests
+            import pyarrow as pa
+            import boto3
+            from pyarrow import csv
+            from pyarrow import parquet as pq
+            from io import BytesIO
+            from datetime import datetime as dt
+            from pipe.task_utils import most_recent
+            
+            years = list(range(2020,2026))
+
+            metadata_inmet = {}
+
+            s3_client = boto3.client(
+                            's3',
+                            aws_access_key_id = get_parameter("/tcc/dev/airflow_aws_s3_key_id"),
+                            aws_secret_access_key = get_parameter("/tcc/dev/airflow_s3_secret"),
+                            region_name = get_parameter("/tcc/dev/aws_region")
+                        )
+
+
+            bucket_name = get_parameter("/tcc/dev/aws_s3_bucket_bronze")
+
+            for year in years:
+                response = requests.get(f"https://portal.inmet.gov.br/uploads/dadoshistoricos/{year}.zip")
+                zip_in_buffer = BytesIO(response.content)
+                
+                with zipfile.ZipFile(zip_in_buffer, "r") as zf:
+                    
+                    files = zf.namelist()
+                    castanhal_files = list(filter(lambda file: "A202" in file, files))
+                    most_recent_castanhal_file = most_recent(castanhal_files)
+                    castanhal_file_bytes = zf.read(most_recent_castanhal_file)
+                    rows = castanhal_file_bytes.decode('latin-1').split('\n')[:8]
+                    
+                    # Pra cada linha, separa por ":;" e pega a chave e valor
+                    for row in rows:
+                        chunk = row.split(':;')
+                        metadata_inmet[chunk[0]] = chunk[1]
+                    
+                    castanhal_file = BytesIO(zf.read(most_recent_castanhal_file))
+                    read_options = csv.ReadOptions(skip_rows=8, encoding="latin-1")
+                    parse_options = csv.ParseOptions(delimiter=";")
+                    castanhal_csv = csv.read_csv(castanhal_file, read_options=read_options, parse_options=parse_options)
+                    
+                metadata = {
+                    b'layer': b'bronze',
+                    b'destiny': b'silver',
+                    b'fonte_nome': b'INMET',
+                    b'fonte_estacao': metadata_inmet['ESTACAO'].encode(),
+                    b'fonte_codigo': metadata_inmet['CODIGO (WMO)'].encode(),
+                    b'fonte_latitude': metadata_inmet['LATITUDE'].encode(),
+                    b'fonte_longitude': metadata_inmet['LONGITUDE'].encode(),
+                    b'fonte_altitude': metadata_inmet['ALTITUDE'].encode(),
+                    b'fonte_datetime_insert': dt.now().isoformat().encode()
+                }
+
+                table = castanhal_csv.replace_schema_metadata(metadata)
+
+
+                now = dt.now()
+
+                path_parquet_s3 = (
+                    f"{metadata[b'fonte_nome'].decode().lower()}/historical/{metadata[b'fonte_estacao'].decode().lower()}/"
+                    f"{metadata[b'fonte_estacao'].decode().lower()}-{year}-{now.isoformat()}.parquet"
+                )
+
+                buffer = BytesIO()
+
+                pq.write_table(
+                    table,
+                    buffer,
+                    compression="snappy"
+                )
+
+                buffer.seek(0)
+
+                s3_client.put_object(
+                    Body=buffer.getvalue(),
+                    Bucket=bucket_name,
+                    Key=path_parquet_s3    
+                )
+            
+            
+        last_hour_inmet = get_last_hour_inmet()
+        historical_inmet = get_historical_inmet()
         get_data
 
 air_quality_etl()
