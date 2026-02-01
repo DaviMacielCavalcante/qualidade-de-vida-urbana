@@ -243,7 +243,7 @@ def air_quality_etl():
             from pyarrow import parquet as pq
             from io import BytesIO
             from datetime import datetime as dt
-            from plugins.pipe.task_utils import most_recent
+            from pipe.task_utils import most_recent
             
             years = list(range(2020,2026))
 
