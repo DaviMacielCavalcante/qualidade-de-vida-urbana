@@ -166,8 +166,6 @@ def app_setup():
                     dropdown_estacao = dropdowns_atualizados[2] 
                     dropdown_estacao.click()
 
-                    opcoes_estacao = driver.find_elements(By.XPATH, "//div[@role='option']//span[@class='text']")
-
                     opcao_castanhal = WebDriverWait(driver, 10).until(
                         ec.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'CASTANHAL') and contains(text(), 'A202')]"))
                     )
@@ -263,7 +261,7 @@ def app_setup():
                             colspan = int(colspan)
                         
                         # Pegar N headers da linha 2 (onde N = colspan)
-                        for i in range(colspan):
+                        for _ in range(colspan):
                             nome_detalhe = ths_linha2[index_linha2].text 
                             
                             nome_detalhe = mapeamento_headers2.get(nome_detalhe, nome_detalhe) 
@@ -456,9 +454,6 @@ def inmet_hourly():
         dropdown_estacao = dropdowns_atualizados[2] 
         dropdown_estacao.click()
 
-
-        opcoes_estacao = driver.find_elements(By.XPATH, "//div[@role='option']//span[@class='text']")
-
         opcao_castanhal = WebDriverWait(driver, 10).until(
             ec.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'CASTANHAL') and contains(text(), 'A202')]"))
         )
@@ -541,7 +536,7 @@ def inmet_hourly():
                 colspan = int(colspan)
             
             # Pegar N headers da linha 2 (onde N = colspan)
-            for i in range(colspan):
+            for _ in range(colspan):
                 nome_detalhe = ths_linha2[index_linha2].text 
                 
                 nome_detalhe = mapeamento_headers2.get(nome_detalhe, nome_detalhe) 
