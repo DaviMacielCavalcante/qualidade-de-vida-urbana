@@ -565,7 +565,6 @@ def inmet_hourly():
         
         inmet_campos_schema = [(header, pa.string()) for header in headers_combinados]
         schema = pa.schema(inmet_campos_schema)
-        schema
         
         dados_sem_metadados_colunar = {k: [v] for k,v in dados_sem_metadados.items()}
         table = pa.Table.from_pydict(dados_sem_metadados_colunar, schema=schema)
@@ -587,7 +586,6 @@ def inmet_hourly():
             f"year={agora.year}/month={agora.month:02d}/day={agora.day:02d}/"
             f"{metadata[b'fonte_estacao'].decode().lower()}-{agora.isoformat()}.parquet"
         )
-        path_parquet_s3
         
         s3_client = boto3.client(
             's3',
