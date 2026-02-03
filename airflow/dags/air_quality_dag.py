@@ -21,6 +21,7 @@ def app_setup():
         from pyarrow import parquet as pq
         from io import BytesIO
         from pipe.task_utils import most_recent
+        from plugins.constants.constants import S3_REGION_PATH, AIRFLOW_AWS_S3_SECRET_KEY_ID_PATH, AIRFLOW_AWS_S3_SECRET_PATH, S3_BUCKET_BRONZE_PATH
         
         years = list(range(2020,2026))
 
@@ -28,13 +29,13 @@ def app_setup():
 
         s3_client = boto3.client(
                         's3',
-                        aws_access_key_id = get_parameter("/tcc/dev/airflow_aws_s3_key_id"),
-                        aws_secret_access_key = get_parameter("/tcc/dev/airflow_s3_secret"),
-                        region_name = get_parameter("/tcc/dev/aws_region")
+                        aws_access_key_id = get_parameter(AIRFLOW_AWS_S3_SECRET_KEY_ID_PATH),
+                        aws_secret_access_key = get_parameter(AIRFLOW_AWS_S3_SECRET_PATH),
+                        region_name = get_parameter(S3_REGION_PATH)
                     )
 
 
-        bucket_name = get_parameter("/tcc/dev/aws_s3_bucket_bronze")
+        bucket_name = get_parameter(S3_BUCKET_BRONZE_PATH)
 
         for year in years:
             response = requests.get(f"https://portal.inmet.gov.br/uploads/dadoshistoricos/{year}.zip")
@@ -106,6 +107,7 @@ def app_setup():
         from selenium.webdriver.chrome.options import Options
         from webdriver_manager.chrome import ChromeDriverManager
         from io import BytesIO
+        from plugins.constants.constants import S3_REGION_PATH, AIRFLOW_AWS_S3_SECRET_KEY_ID_PATH, AIRFLOW_AWS_S3_SECRET_PATH, S3_BUCKET_BRONZE_PATH
         import time 
         import pyarrow as pa 
         import pyarrow.parquet as pq
@@ -310,12 +312,12 @@ def app_setup():
 
                     s3_client = boto3.client(
                         's3',
-                        aws_access_key_id = get_parameter("/tcc/dev/airflow_aws_s3_key_id"),
-                        aws_secret_access_key = get_parameter("/tcc/dev/airflow_s3_secret"),
-                        region_name = get_parameter("/tcc/dev/aws_region")
+                        aws_access_key_id = get_parameter(AIRFLOW_AWS_S3_SECRET_KEY_ID_PATH),
+                        aws_secret_access_key = get_parameter(AIRFLOW_AWS_S3_SECRET_PATH),
+                        region_name = get_parameter(S3_REGION_PATH)
                     )
 
-                    bucket_name = get_parameter("/tcc/dev/aws_s3_bucket_bronze")
+                    bucket_name = get_parameter(S3_BUCKET_BRONZE_PATH)
                     buffer = BytesIO()
 
                     pq.write_table(
@@ -402,6 +404,7 @@ def inmet_hourly():
         from selenium.webdriver.chrome.options import Options
         from webdriver_manager.chrome import ChromeDriverManager
         from io import BytesIO
+        from plugins.constants.constants import S3_REGION_PATH, AIRFLOW_AWS_S3_SECRET_KEY_ID_PATH, AIRFLOW_AWS_S3_SECRET_PATH, S3_BUCKET_BRONZE_PATH
         import time 
         import pyarrow as pa 
         import pyarrow.parquet as pq
@@ -589,12 +592,12 @@ def inmet_hourly():
         
         s3_client = boto3.client(
             's3',
-            aws_access_key_id = get_parameter("/tcc/dev/airflow_aws_s3_key_id"),
-            aws_secret_access_key = get_parameter("/tcc/dev/airflow_s3_secret"),
-            region_name = get_parameter("/tcc/dev/aws_region")
+            aws_access_key_id = get_parameter(AIRFLOW_AWS_S3_SECRET_KEY_ID_PATH),
+            aws_secret_access_key = get_parameter(AIRFLOW_AWS_S3_SECRET_PATH),
+            region_name = get_parameter(S3_REGION_PATH)
         )
 
-        bucket_name = get_parameter("/tcc/dev/aws_s3_bucket_bronze")
+        bucket_name = get_parameter(S3_BUCKET_BRONZE_PATH)
         
         buffer = BytesIO()
 
